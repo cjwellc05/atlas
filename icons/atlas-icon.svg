@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+ <defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2563EB"/><stop offset="1" stop-color="#1238A8"/></linearGradient>
+  <clipPath id="g"><circle cx="282" cy="168" r="110"/></clipPath>
+ </defs>
+ <rect width="512" height="512" fill="url(#bg)"/>
+ <g transform="translate(256 262) scale(0.92) translate(-292 -270)">
+  <circle cx="282" cy="168" r="110" fill="#ffffff" fill-opacity=".14" stroke="#fff" stroke-width="12"/>
+  <g clip-path="url(#g)" fill="none" stroke="#fff" stroke-width="6" stroke-opacity=".8">
+   <ellipse cx="282" cy="168" rx="46" ry="110"/>
+   <line x1="282" y1="58" x2="282" y2="278"/>
+   <ellipse cx="282" cy="168" rx="90" ry="110"/>
+   <line x1="172" y1="168" x2="392" y2="168"/>
+   <path d="M180 116 Q282 136 384 116"/>
+   <path d="M180 220 Q282 200 384 220"/>
+  </g>
+  <g fill="#fff" stroke="#fff" stroke-linejoin="round" stroke-linecap="round">
+   <!-- torso, bent forward under the globe -->
+   <path d="M224 290 Q262 268 296 284 Q326 318 320 368 L288 384 Q256 340 224 290 Z" stroke-width="12"/>
+   <g fill="none">
+    <!-- far arm reaching up to front of globe -->
+    <path d="M236 290 L200 252 L188 212" stroke-width="22"/>
+    <!-- near arm reaching back to rear of globe -->
+    <path d="M276 292 L330 292 L368 244" stroke-width="26"/>
+    <!-- front leg -->
+    <path d="M298 374 L224 398" stroke-width="40"/>
+    <path d="M222 398 L204 460" stroke-width="28"/>
+    <path d="M206 464 L170 466" stroke-width="18"/>
+    <!-- rear leg, extended, on the toes -->
+    <path d="M312 372 L358 420" stroke-width="38"/>
+    <path d="M358 420 L410 456" stroke-width="26"/>
+    <path d="M410 458 L432 468" stroke-width="16"/>
+   </g>
+  </g>
+  <circle cx="204" cy="296" r="25" fill="#fff"/>
+  <line x1="150" y1="482" x2="450" y2="482" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-opacity=".45"/>
+ </g>
+</svg>
