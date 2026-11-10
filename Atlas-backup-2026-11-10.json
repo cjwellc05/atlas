@@ -1,0 +1,284 @@
+{
+ "app": "atlas",
+ "v": 1,
+ "saved": 1794340692563,
+ "profiles": [
+  {
+   "age": 46,
+   "cGoal": "endurance",
+   "cMin": 30,
+   "cModes": [
+    "walk",
+    "elliptical"
+   ],
+   "checkin": {
+    "date": "2026-11-09",
+    "energy": "ok",
+    "sore": []
+   },
+   "clog": [],
+   "created": 1792974782128,
+   "days": [
+    0,
+    1,
+    3,
+    4
+   ],
+   "equip": [
+    "barbell",
+    "rack",
+    "bench",
+    "adjbench",
+    "dumbbells",
+    "cable",
+    "latpull",
+    "seatedrow",
+    "legcurl",
+    "legext",
+    "pullup",
+    "dip",
+    "preacher",
+    "medball",
+    "bands"
+   ],
+   "exp": "exp",
+   "focus": [
+    "chest",
+    "lats",
+    "upperback",
+    "shoulders",
+    "biceps",
+    "triceps",
+    "quads",
+    "hamstrings",
+    "glutes",
+    "calves",
+    "core"
+   ],
+   "goal": "muscle",
+   "ht": 72,
+   "id": "xbey9s9i",
+   "minutes": 60,
+   "name": "Curt",
+   "over": {},
+   "prog": {
+    "bandwalk": {
+     "bonus": 2,
+     "last": "2026-11-09"
+    },
+    "bench": {
+     "last": "2026-11-09",
+     "stall": 0,
+     "w": 135
+    },
+    "cablecrunch": {
+     "last": "2026-11-09",
+     "stall": 0,
+     "w": 65
+    },
+    "cablelat": {
+     "last": "2026-11-09",
+     "stall": 0,
+     "w": 15
+    },
+    "ohext": {
+     "last": "2026-11-09",
+     "stall": 0,
+     "w": 25
+    },
+    "rdl": {
+     "last": "2026-11-09",
+     "stall": 0,
+     "w": 145
+    },
+    "seatedrow": {
+     "last": "2026-11-09",
+     "stall": 0,
+     "w": 75
+    },
+    "squat": {
+     "last": "2026-11-09",
+     "stall": 0,
+     "w": 145
+    },
+    "straightarm": {
+     "last": "2026-11-09",
+     "stall": 0,
+     "w": 55
+    }
+   },
+   "sessions": [
+    {
+     "date": "2026-11-09",
+     "di": 0,
+     "entries": [
+      {
+       "hi": 10,
+       "id": "squat",
+       "lo": 6,
+       "sets": [
+        {
+         "r": 10,
+         "w": 135
+        },
+        {
+         "r": 10,
+         "w": 135
+        },
+        {
+         "r": 10,
+         "w": 135
+        }
+       ]
+      },
+      {
+       "hi": 10,
+       "id": "bench",
+       "lo": 6,
+       "sets": [
+        {
+         "r": 10,
+         "w": 135
+        },
+        {
+         "r": 10,
+         "w": 135
+        },
+        {
+         "r": 10,
+         "w": 135
+        }
+       ]
+      },
+      {
+       "hi": 10,
+       "id": "seatedrow",
+       "lo": 6,
+       "sets": [
+        {
+         "r": 10,
+         "w": 70
+        },
+        {
+         "r": 10,
+         "w": 70
+        },
+        {
+         "r": 10,
+         "w": 70
+        },
+        {
+         "r": 10,
+         "w": 70
+        }
+       ]
+      },
+      {
+       "hi": 10,
+       "id": "rdl",
+       "lo": 6,
+       "sets": [
+        {
+         "r": 10,
+         "w": 135
+        },
+        {
+         "r": 10,
+         "w": 135
+        },
+        {
+         "r": 10,
+         "w": 135
+        },
+        {
+         "r": 10,
+         "w": 135
+        }
+       ]
+      },
+      {
+       "hi": 15,
+       "id": "cablelat",
+       "lo": 10,
+       "sets": [
+        {
+         "r": 15,
+         "w": 15
+        },
+        {
+         "r": 10,
+         "w": 15
+        }
+       ]
+      },
+      {
+       "hi": 15,
+       "id": "straightarm",
+       "lo": 10,
+       "sets": [
+        {
+         "r": 15,
+         "w": 50
+        },
+        {
+         "r": 15,
+         "w": 50
+        }
+       ]
+      },
+      {
+       "hi": 15,
+       "id": "ohext",
+       "lo": 10,
+       "sets": [
+        {
+         "r": 15,
+         "w": 20
+        },
+        {
+         "r": 15,
+         "w": 25
+        }
+       ]
+      },
+      {
+       "hi": 15,
+       "id": "bandwalk",
+       "lo": 10,
+       "sets": [
+        {
+         "r": 15,
+         "w": 0
+        },
+        {
+         "r": 15,
+         "w": 0
+        }
+       ]
+      },
+      {
+       "hi": 15,
+       "id": "cablecrunch",
+       "lo": 10,
+       "sets": [
+        {
+         "r": 15,
+         "w": 60
+        },
+        {
+         "r": 15,
+         "w": 60
+        }
+       ]
+      }
+     ],
+     "name": "Full Body A",
+     "tk": "FA"
+    }
+   ],
+   "sex": "m",
+   "start": "2026-11-09",
+   "wt": 200
+  }
+ ]
+}
