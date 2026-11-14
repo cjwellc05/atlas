@@ -1,5 +1,5 @@
 // Atlas service worker: app shell offline, fonts cached on first use.
-const VERSION = 'atlas-v3';
+const VERSION = 'atlas-v4';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'vendor/jspdf.umd.min.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-48.png'];
 
@@ -16,7 +16,7 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   // The page itself: network first so updates show up, cached copy when offline.
   if (req.mode === 'navigate') {
-    e.respondWith(fetch(req).then(r => { const c = r.clone(); caches.open(VERSION).then(x => x.put('index.html', c)); return r; })
+    e.respondWith(fetch(req, { cache: 'no-store' }).then(r => { const c = r.clone(); caches.open(VERSION).then(x => x.put('index.html', c)); return r; })
       .catch(() => caches.match('index.html')));
     return;
   }
