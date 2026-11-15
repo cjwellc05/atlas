@@ -307,6 +307,10 @@ legend{font-family:var(--f-display);font-weight:700;font-size:19px;letter-spacin
 .caldet .xl{font-size:13.5px;display:grid;grid-template-columns:1fr auto;gap:10px}
 .caldet .xl span:last-child{font-family:var(--f-mono);color:var(--muted);font-size:12.5px;text-align:right}
 @media (prefers-reduced-motion:no-preference){.ex,.wrow,.card{transition:border-color .15s}.tbar i{transition:width .5s linear}}
+/* swipeable week strip */
+.swipe{display:flex;flex-direction:column;gap:8px;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.swipe .calm{text-align:left;min-width:0}
+@media (prefers-reduced-motion:no-preference){@keyframes slL{from{transform:translateX(44px);opacity:.25}to{transform:none;opacity:1}}@keyframes slR{from{transform:translateX(-44px);opacity:.25}to{transform:none;opacity:1}}.stripwrap.slL{animation:slL .22s ease-out}.stripwrap.slR{animation:slR .22s ease-out}}
 </style>
 
 </head><body>
@@ -701,7 +705,7 @@ function buildPlan(p){
   }
   const warnings=[];
   out.forEach(d=>{const nx=baseByWd[(d.wd+1)%7];if(nx&&nx!==d){const sh=[...d.comp].filter(m=>nx.comp.has(m)&&m!=='core');if(sh.length)warnings.push(`${WD[d.wd]} and ${WD[nx.wd]} both train ${listJoin(sh.map(m=>MUSCLES[m].toLowerCase()))} hard. Spread the days out so each muscle gets 48 hours.`);}});
-  return{days:out,byWd,custom,cardio:cardioPlan(p,Object.values(byWd)),warnings,rotNote,doneToday,meso};
+  return{days:out,byWd,custom,rEnd:r,cardio:cardioPlan(p,Object.values(byWd)),warnings,rotNote,doneToday,meso};
 }
 function cardioPlan(p,days){
   const out={};if(!p.cGoal||p.cGoal==='none')return out;
@@ -1178,11 +1182,63 @@ function summaryCard(){
   const s=S.summary;
   return `<section class="card" style="border-color:var(--good)"><div class="eyebrow" style="color:var(--good)">Workout saved</div><h2 style="margin:4px 0 4px">${esc(s.name)} done</h2>${s.headline?`<p class="cheer" style="border-left-color:var(--good);margin:4px 0 8px">${esc(s.headline)}${s.week?' '+esc(s.week):''}</p>`:''}<ul class="sum" style="margin:0;padding-left:18px">${s.rows.map(r=>`<li><b>${esc(r.n)}</b>: <span class="${r.up?'up':''}">${esc(r.note)}</span></li>`).join('')}</ul><div style="display:flex;gap:18px;margin-top:10px;flex-wrap:wrap"><button class="link" data-act="dismiss">Close</button>${S.undo&&Date.now()-S.undo.t<20*60e3?`<button class="link" style="color:var(--bad)" data-act="undofin">Undo: I wasn’t done</button>`:''}</div></section>`;
 }
+// Week strip that swipes (or uses ‹ ›) to past and future weeks. S.wkOff is weeks from this one.
+// The workout a future weekday gets if the rotation keeps going in order.
+function projected(plan,k,wd){const L=plan.days.map(d=>d.wd).sort((a,b)=>a-b),n=plan.days.length,pos=L.indexOf(wd);if(k<1||pos<0||!n)return null;return plan.days[(plan.rEnd+(k-1)*n+pos)%n];}
+function weekNav(p,plan,sel){
+  const k=S.wkOff||0,a=isoDate(dateFor(7*k));
+  const head=`<div class="calhead"><span class="calm">${k===0?'This week':esc(weekLabel(a))}</span><div class="calnav"><button class="ghost" data-act="wkprev" aria-label="Previous week">‹</button>${k?'<button class="ghost" data-act="wknow">Today</button>':''}<button class="ghost" data-act="wknext" aria-label="Next week">›</button></div></div>`;
+  return `<div class="swipe">${head}<div class="stripwrap ${S.slide||''}">${k===0?strip(plan,sel,true):otherStrip(p,plan,k)}</div></div>`;
+}
+function otherStrip(p,plan,k){
+  const sel=S.viewOther??todayIdx();
+  return `<div class="strip">${WD.map((d,wd)=>{
+    const dt=dateFor(7*k+wd),iso=isoDate(dt);let L,C,nm='';
+    if(k<0){const ss=(p.sessions||[]).filter(s=>s.date===iso);L=ss.length>0;C=(p.clog||[]).some(c=>c.date===iso);nm=ss.map(s=>s.name).join(', ');}
+    else{const pd=projected(plan,k,wd);L=!!pd;C=!!plan.cardio[wd];nm=pd?pd.name:'';}
+    const marks=(L?'<i class="mk lift"></i>':'')+(C?'<i class="mk cardio"></i>':'')+(!L&&!C?'<i class="mk rest"></i>':'');
+    return `<button class="dcell" data-act="oday" data-wd="${wd}" aria-pressed="${wd===sel}" aria-label="${WDL[wd]} ${fmtDay(dt)}${nm?', '+esc(nm):''}${C?', cardio':''}"><span>${d.charAt(0)}</span><span class="num">${dt.getDate()}</span><span class="marks">${marks}</span></button>`;
+  }).join('')}</div>`;
+}
+// A day in another week: what was logged (past) or what's planned (future). Read only.
+function otherDayView(p,plan){
+  const k=S.wkOff,wd=S.viewOther??todayIdx(),dt=dateFor(7*k+wd),iso=isoDate(dt);
+  let h='';
+  if(k<0){
+    const ss=(p.sessions||[]).filter(s=>s.date===iso),cs=(p.clog||[]).filter(c=>c.date===iso);
+    h+=`<section class="dayhead"><div class="eyebrow">${WDL[wd]} · ${fmtDay(dt)}</div><h1>${ss.length?esc(ss.map(s=>s.name).join(' + ')):(cs.length?'Cardio':'No workout')}</h1>${ss.length?`<p class="meta">${ss.reduce((n,s)=>n+s.entries.reduce((a,e)=>a+e.sets.length,0),0)} sets logged</p>`:''}</section>`;
+    ss.forEach(s=>{h+=`<section class="card"><h2 style="margin-bottom:6px">${esc(s.name)}</h2>${s.entries.map(e=>`<div class="sess"><b>${esc(BY[e.id]?BY[e.id].n:e.id)}</b><span>${esc(setStr(e.id,e.sets).replace(/x/g,'×'))}</span></div>`).join('')}</section>`;});
+    cs.forEach(c=>{h+=`<section class="card cardio"><span class="ctag">Cardio${c.mode?' · '+esc(CMN[c.mode]||c.mode):''}</span><div class="ctitle"><h3>${esc(c.title)}</h3><span class="mins">${c.min} min</span></div><p class="cdone" style="margin:0">✓ Done</p></section>`;});
+    if(!ss.length&&!cs.length)h+=`<section class="card"><p style="margin:0">Nothing was logged on this day.</p></section>`;
+  }else{
+    const d=projected(plan,k,wd),c=plan.cardio[wd];
+    h+=`<section class="dayhead"><div class="eyebrow">${WDL[wd]} · ${fmtDay(dt)}</div><h1>${d?esc(d.name):(c?'Cardio day':'Rest day')}</h1>${d?`<p class="meta">${d.items.length} exercises · about ${d.mins} min · ${listJoin([...new Set(d.items.map(i=>MUSCLES[i.ex.m]))])}</p>`:''}</section>`;
+    if(d)h+=`<section class="card"><div class="eyebrow">Planned</div><div class="mini">${d.items.map(it=>`<div><span class="l">${it.label}</span><span>${esc(it.ex.n)}<br><span class="w">${it.rx.sets}×${it.lo}–${it.hi}${it.w!=null?' · '+it.w+' lb':''}</span></span><span></span><span></span></div>`).join('')}</div><p class="note" style="margin-top:8px">If you keep the rotation going, this is what’s next on that day. Weights and sets update as you log workouts.</p></section>`;
+    if(c)h+=cardioCard(c,p,false);
+    if(!d&&!c)h+=`<section class="card"><p style="margin:0">Full rest day.</p></section>`;
+  }
+  return h+`<button class="btn sec wide" data-act="wknow">Back to today</button>`;
+}
+function shiftWeek(d){
+  const cur=S.wkOff?(S.viewOther??todayIdx()):(S.viewDay??todayIdx());
+  S.wkOff=(S.wkOff||0)+d;S.slide=d>0?'slL':'slR';S.sheet=null;
+  if(S.wkOff===0)S.viewDay=cur;else S.viewOther=cur;
+  keepScroll(()=>{});S.slide=null;
+}
+// Drag the strip left or right to change weeks.
+let swp=null;
+document.addEventListener('pointerdown',e=>{if(!e.target.closest||!e.target.closest('.swipe'))return;swp={x:e.clientX,y:e.clientY,moved:false};});
+document.addEventListener('pointermove',e=>{if(!swp)return;const dx=e.clientX-swp.x,dy=e.clientY-swp.y;if(!swp.moved&&Math.abs(dx)>10&&Math.abs(dx)>Math.abs(dy))swp.moved=true;if(swp.moved){const w=document.querySelector('.stripwrap');if(w)w.style.transform=`translateX(${Math.max(-90,Math.min(90,dx*0.6))}px)`;}});
+function endSwipe(e,cancel){if(!swp)return;const dx=(e.clientX||swp.x)-swp.x,moved=swp.moved;swp=null;const w=document.querySelector('.stripwrap');if(w)w.style.transform='';
+  if(!moved)return;S.blockClick=Date.now();if(!cancel&&Math.abs(dx)>45)shiftWeek(dx<0?1:-1);}
+document.addEventListener('pointerup',e=>endSwipe(e,false));
+document.addEventListener('pointercancel',e=>endSwipe(e,true));
 // Home / Gym switch: Atlas rebuilds the plan from that place's equipment.
 function locToggle(p){const g=atGym(p);return `<div class="energy" role="group" aria-label="Where you’re training" style="grid-template-columns:1fr 1fr">${[['home','At home'],['gym','At the gym']].map(([k,l])=>`<button data-act="loc" data-v="${k}" aria-pressed="${(g?'gym':'home')===k}">${l}</button>`).join('')}</div>${g?`<p class="note" style="margin-top:-6px">Using your gym equipment (${(p.gymEquip||GYM_DEFAULT).length} items). Change it in Profile → Edit.</p>`:''}`;}
 function todayView(p,plan){
   const t=todayIdx(),sel=S.viewDay??t,day=dayFor(p,plan,sel),c=plan.cardio[sel];
-  let h=locToggle(p)+strip(plan,sel,true);
+  if(S.wkOff&&!S.guide)return locToggle(p)+weekNav(p,plan,sel)+otherDayView(p,plan);
+  let h=locToggle(p)+weekNav(p,plan,sel);
   if(S.summary)h+=summaryCard();
   const pre=!!(p.start&&isoDate()<p.start);
   if(pre&&!S.guide){
@@ -1498,7 +1554,7 @@ function profileView(p){
   h+=`<section class="card"><dl class="kv"><dt>Age</dt><dd>${p.age}</dd><dt>Height</dt><dd>${htText(p.ht)}</dd><dt>Weight</dt><dd>${p.wt} lb</dd><dt>Experience</dt><dd>${EXP[p.exp][0]}</dd><dt>Goal</dt><dd>${GOALS[p.goal][0]}</dd><dt>Focus</dt><dd>${(p.focus||[]).length?p.focus.map(m=>MUSCLES[m]).join(', '):'Balanced'}</dd><dt>Lifting days</dt><dd>${[...p.days].sort().map(d=>WD[d]).join(', ')}</dd><dt>Session</dt><dd>${p.minutes} min</dd><dt>Cardio</dt><dd>${CGOALS[p.cGoal][0]}${p.cGoal!=='none'?' · '+(p.cModes||[]).map(m=>CMN[m]).join(', '):''}</dd><dt>Home equipment</dt><dd>${(p.equip||[]).length} items</dd><dt>Gym equipment</dt><dd>${(p.gymEquip||GYM_DEFAULT).length} items</dd><dt>Training at</dt><dd>${atGym(p)?'Gym':'Home'}</dd></dl><button class="btn sec wide" style="margin-top:14px" data-act="edit">Edit profile and goals</button></section>`;
   h+=`<section class="card"><h2>Household</h2><p class="note" style="margin:4px 0 6px">Each person gets their own plan, weights and history.</p><div class="people">${S.profiles.map(q=>`<div class="person"><span class="av" style="width:30px;height:30px;border-radius:50%;background:${q.id===p.id?'var(--accent)':'var(--surface-2)'};color:${q.id===p.id?'var(--accent-ink)':'var(--ink)'};display:grid;place-items:center;font-weight:700">${initials(q.name)}</span><span><b>${esc(q.name)}</b><br><small class="note">${GOALS[q.goal][0]} · ${q.days.length} days</small></span>${q.id===p.id?'<span class="tag in">Active</span>':`<button class="ghost" data-act="switch" data-id="${q.id}">Switch</button>`}</div>`).join('')}</div><button class="btn sec wide" style="margin-top:10px" data-act="add">Add a person</button></section>`;
   h+=backupCard();
-  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 8.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
+  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 9.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
   if(S.confirmDel===p.id)h+=`<div class="banner bad">Delete ${esc(p.name)} and all of their logged workouts? This can’t be undone.<div style="display:flex;gap:8px;margin-top:10px"><button class="btn danger" data-act="delyes">Delete</button><button class="btn sec" data-act="delno">Cancel</button></div></div>`;
   else h+=`<button class="link" style="color:var(--bad);align-self:flex-start" data-act="del">Delete ${esc(p.name)}</button>`;
   return h;
@@ -1691,6 +1747,7 @@ document.addEventListener('input',e=>{
   const d=getDraft(p,day);d[key].sets[+i][f]=t.value;saveDraft(p,day,d);
 });
 document.addEventListener('click',e=>{
+  if(S.blockClick&&Date.now()-S.blockClick<250){S.blockClick=0;return;}
   const b=e.target.closest('[data-act]');if(!b)return;
   if(b.dataset.act==='close'&&b.classList.contains('scrim')&&e.target.closest('[data-stop]'))return;
   const a=b.dataset.act,p=active();
@@ -1710,7 +1767,7 @@ document.addEventListener('click',e=>{
       p.sessions=(p.sessions||[]).filter(s=>s!==u.ref);p.prog=u.prog;if(u.extra)p.extra=u.extra;else delete p.extra;
       u.d._ts=Date.now();S.drafts[u.k]=u.d;lsSet('atlas.d.'+u.k,u.d);Store.saveDraft(p.id,u.k,u.d);
       S.undo=null;S.summary=null;Store.save(p);render();window.scrollTo({top:0});break;}
-    case 'tab':S.tab=b.dataset.tab;S.editing=false;S.adding=false;S.confirmDel=null;if(S.tab==='today')S.viewDay=null;render();window.scrollTo({top:0});break;
+    case 'tab':S.tab=b.dataset.tab;S.editing=false;S.adding=false;S.confirmDel=null;if(S.tab==='today'){S.viewDay=null;S.wkOff=0;}render();window.scrollTo({top:0});break;
     case 'day':S.viewDay=+b.dataset.wd;S.flash='';render();break;
     case 'done':{
       const plan=buildPlan(p),day=currentDay(p,plan);if(!day)break;const it=day.items.find(x=>x.key===b.dataset.k),d=getDraft(p,day),s=d[b.dataset.k].sets[+b.dataset.i];
@@ -1720,7 +1777,11 @@ document.addEventListener('click',e=>{
       saveDraft(p,day,d);
       const y=window.scrollY;render();window.scrollTo({top:y});break;}
     case 'finish':finishWorkout();break;
-    case 'guide':S.guide=true;S.flash='';S.cheer='';S.viewDay=S.viewDay??todayIdx();render();window.scrollTo({top:0});break;
+    case 'wkprev':shiftWeek(-1);break;
+    case 'wknext':shiftWeek(1);break;
+    case 'wknow':S.wkOff=0;S.viewDay=null;render();window.scrollTo({top:0});break;
+    case 'oday':S.viewOther=+b.dataset.wd;render();break;
+    case 'guide':S.guide=true;S.wkOff=0;S.flash='';S.cheer='';S.viewDay=S.viewDay??todayIdx();render();window.scrollTo({top:0});break;
     case 'unguide':S.guide=false;render();break;
     case 'warm':{const plan=buildPlan(p),day=currentDay(p,plan);if(!day)break;const d=getDraft(p,day);d._warm=true;S.cheer='Warmed up. First working set: own the form.';saveDraft(p,day,d);keepScroll(()=>{});break;}
     case 'gstep':{const plan=buildPlan(p),day=currentDay(p,plan);if(!day)break;const d=getDraft(p,day),steps=guideSteps(day);
