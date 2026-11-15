@@ -320,7 +320,9 @@ const WD=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const WDL=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const MUSCLES={chest:'Chest',lats:'Lats',upperback:'Upper back',shoulders:'Shoulders',biceps:'Biceps',triceps:'Triceps',quads:'Quads',hamstrings:'Hamstrings',glutes:'Glutes',calves:'Calves',core:'Core',power:'Power'};
 const LOWER=new Set(['quads','hamstrings','glutes','calves']);
-const EQUIP=[['barbell','Barbell & plates'],['rack','Squat rack'],['bench','Flat bench'],['adjbench','Adjustable bench'],['dumbbells','Dumbbells'],['cable','Cable station'],['latpull','Lat pulldown'],['seatedrow','Seated row'],['legcurl','Leg curl'],['legext','Leg extension'],['legpress','Leg press'],['pullup','Pull-up bar'],['dip','Dip station'],['preacher','Preacher bench'],['medball','Medicine ball'],['bands','Resistance bands'],['kettlebell','Kettlebell'],['trapbar','Trap bar']];
+const EQUIP=[['barbell','Barbell & plates'],['rack','Squat rack'],['bench','Flat bench'],['adjbench','Adjustable bench'],['dumbbells','Dumbbells'],['cable','Cable station'],['latpull','Lat pulldown'],['seatedrow','Seated row'],['legcurl','Leg curl'],['legext','Leg extension'],['legpress','Leg press'],['pullup','Pull-up bar'],['dip','Dip station'],['preacher','Preacher bench'],['medball','Medicine ball'],['bands','Resistance bands'],['kettlebell','Kettlebell'],['trapbar','Trap bar'],['smith','Smith machine'],['chestpress','Chest press machine'],['shoulderpress','Shoulder press machine'],['pecdeck','Pec deck / rear delt machine'],['machinerow','Row machine'],['hacksquat','Hack squat machine'],['calfmachine','Calf raise machine'],['abductor','Hip abduction machine'],['backext','Back extension bench'],['ezbar','EZ curl bar'],['tbar','T-bar row'],['assist','Assisted pull-up / dip machine']];
+// A gym has everything by default; people can untick what theirs lacks.
+const GYM_DEFAULT=EQUIP.map(e=>e[0]);
 const EQN=Object.fromEntries(EQUIP);
 const HOME_DEFAULT=['barbell','rack','bench','adjbench','dumbbells','cable','latpull','seatedrow','legcurl','legext','pullup','dip','preacher','medball','bands'];
 const CMODES=[['walk','Walk'],['run','Run'],['bike','Bike'],['rower','Rower'],['elliptical','Elliptical'],['rope','Jump rope'],['swim','Swim']];
@@ -407,7 +409,27 @@ const RAW=[
 ['mbslam','Medicine ball slam','power',['core','lats'],['medball'],'c','ball',0,'Reach fully overhead, then slam as hard as you can.'],
 ['mbrot','Rotational med ball throw','power',['core'],['medball'],'c','ball',0,'Throw into a wall from the hip. Do both sides.'],
 ['mbchest','Med ball chest pass','power',['chest','triceps'],['medball'],'c','ball',0,'Explode the ball off your chest into a wall.'],
-['broadjump','Broad jump','power',['quads','glutes'],[],'c','bw',0,'Swing the arms, jump far, stick the landing.']
+['broadjump','Broad jump','power',['quads','glutes'],[],'c','bw',0,'Swing the arms, jump far, stick the landing.'],
+['machinechest','Machine chest press','chest',['triceps','shoulders'],['chestpress'],'c','stack',0.8,'Handles at mid-chest. Press out without locking your elbows hard.'],
+['smithbench','Smith machine bench press','chest',['triceps','shoulders'],['smith','bench'],'c','stack',0.85,'Bench set so the bar lands on your mid-chest. Shoulder blades pinned back.'],
+['smithincline','Smith machine incline press','chest',['shoulders','triceps'],['smith','adjbench'],'c','stack',0.7,'Bench at about 30°. Bar touches your upper chest.'],
+['pecdeck','Pec deck fly','chest',['shoulders'],['pecdeck'],'i','stack',0.45,'Elbows slightly bent. Squeeze the pads together and open slowly.'],
+['assistpull','Assisted pull-up','lats',['biceps','upperback'],['assist'],'c','bw',0,'Use enough assistance to hit the reps. Pull your chin over the bar, lower fully.'],
+['machinerow','Machine row','upperback',['lats','biceps'],['machinerow'],'c','stack',0.7,'Chest on the pad. Pull your elbows back and squeeze your shoulder blades.'],
+['tbarrow','T-bar row','upperback',['lats','biceps'],['tbar'],'c','stack',0.75,'Hinge forward with a flat back and pull the handles to your chest.'],
+['revpecdeck','Reverse pec deck','shoulders',['upperback'],['pecdeck'],'i','stack',0.3,'Face the pad, arms straight out front. Sweep them back to your sides.'],
+['machineshoulder','Machine shoulder press','shoulders',['triceps'],['shoulderpress'],'c','stack',0.5,'Handles at shoulder height. Press up without arching your back.'],
+['smithohp','Smith machine shoulder press','shoulders',['triceps'],['smith','adjbench'],'c','stack',0.5,'Bench upright under the bar. Lower to your chin, press straight up.'],
+['ezcurl','EZ-bar curl','biceps',[],['ezbar'],'i','bb',0.38,'Grip the angled part of the bar. Elbows stay at your sides.'],
+['ezpreacher','EZ-bar preacher curl','biceps',[],['ezbar','preacher'],'i','bb',0.3,'Upper arms flat on the pad. Lower all the way down.'],
+['ezskull','EZ-bar skull crusher','triceps',[],['ezbar','bench'],'i','bb',0.33,'Lower the bar toward your forehead, elbows pointing up.'],
+['assistdip','Assisted dip','triceps',['chest','shoulders'],['assist'],'c','bw',0,'Use enough assistance to hit the reps. Lower until your elbows reach 90°.'],
+['hacksquat','Hack squat','quads',['glutes'],['hacksquat'],'c','stack',1.3,'Back flat on the pad. Lower until your thighs are parallel, drive up through your feet.'],
+['smithsquat','Smith machine squat','quads',['glutes'],['smith','rack'],'c','stack',1.1,'Feet slightly in front of the bar. Sit down to parallel and stand up.'],
+['backext','Back extension','hamstrings',['glutes'],['backext'],'i','bw',0,'Hinge at the hips over the pad, then raise until your body is straight.'],
+['abduct','Hip abduction machine','glutes',[],['abductor'],'i','stack',0.6,'Sit tall and push your knees out against the pads. Return slowly.'],
+['seatedcalf','Seated calf raise','calves',[],['calfmachine'],'i','stack',0.8,'Pads on your lower thighs. Full stretch at the bottom, pause at the top.'],
+['standcalfm','Standing calf raise machine','calves',[],['calfmachine'],'i','stack',1.2,'Shoulders under the pads. Lower your heels fully, then rise high.']
 ];
 const LIB=RAW.map(([id,n,m,s,eq,k,load,r,cue],i)=>({id,n,m,s,eq,k,load,r,cue,i}));
 const BY=Object.fromEntries(LIB.map(x=>[x.id,x]));
@@ -449,7 +471,8 @@ const htText=i=>Math.floor(i/12)+'′'+(i%12)+'″';
 function active(){return S.profiles.find(p=>p.id===S.activeId)||S.profiles[0]||null;}
 
 /* ---------- training logic ---------- */
-function eqSet(p){const s=new Set(p.equip||[]);if(s.has('adjbench'))s.add('bench');return s;}
+const atGym=p=>p.loc==='gym';
+function eqSet(p){const s=new Set((atGym(p)?(p.gymEquip||GYM_DEFAULT):p.equip)||[]);if(s.has('adjbench'))s.add('bench');return s;}
 const avail=(ex,eq)=>ex.eq.every(e=>eq.has(e));
 const sessionCount=m=>({30:4,45:5,60:6,75:7,90:8})[m]||6;
 const loaded=ex=>['bb','db','db1','stack'].includes(ex.load);
@@ -524,16 +547,16 @@ function estMin(items){
 /* ---------- muscle-growth programming ---------- */
 // Exercises ranked for hypertrophy: stable, full range, loads the muscle in a stretched position.
 const GROW_PREF={
- chest:['bench','inclinedb','dbbench','inclinebb','dipchest','cablefly','dbfly','pushup'],
+ chest:['bench','inclinedb','machinechest','dbbench','inclinebb','smithincline','smithbench','pecdeck','dipchest','cablefly','dbfly','pushup'],
  lats:['pulldown','pullup','chinup','cgpulldown','straightarm','bandpulldown'],
- upperback:['seatedrow','csrow','dbrow','bbrow','invrow','facepull','pullapart'],
- shoulders:['dbohp','ohp','standdbohp','cablelat','latraise','reardelt','pikepush'],
+ upperback:['seatedrow','machinerow','csrow','tbarrow','dbrow','bbrow','invrow','facepull','pullapart'],
+ shoulders:['dbohp','machineshoulder','ohp','smithohp','standdbohp','cablelat','latraise','revpecdeck','reardelt','pikepush'],
  biceps:['inclinecurl','preacher','dbcurl','bbcurl','cablecurl','hammer','bandcurl'],
  triceps:['dips','cgbench','ohext','skull','pushdown','benchdip','bandpush'],
- quads:['squat','bss','legpress','frontsquat','goblet','lunge','stepup','legext','bwsquat'],
+ quads:['squat','hacksquat','bss','legpress','smithsquat','frontsquat','goblet','lunge','stepup','legext','bwsquat'],
  hamstrings:['rdl','dbrdl','deadlift','trapdl','legcurl','slrdl','swing'],
  glutes:['hipthrust','dbthrust','pullthrough','bridge','bandwalk'],
- calves:['calfdb','calfpress','calfsl'],
+ calves:['standcalfm','seatedcalf','calfdb','calfpress','calfsl'],
  core:['cablecrunch','hkr','pallof','deadbug','plank','pallofband','sideplank']
 };
 const MESO=[{ph:'Base',f:0.9,note:'Settle in at moderate volume. Learn your working weights.'},{ph:'Build',f:1.0,note:'Full planned volume.'},{ph:'Build',f:1.1,note:'Volume up about 10%. Keep pushing the reps.'},{ph:'Peak',f:1.2,note:'Highest volume of the cycle. Expect to be tired; that’s the point.'},{ph:'Deload',f:0.5,note:'Half the sets at the same weights. Stop 3–4 reps short of failure and let your body catch up. Growth shows up after this week.'}];
@@ -851,7 +874,7 @@ const PAT={
  chestpass:{a:STD+' E112,62 W116,52',b:STD+' E122,50 W142,48',steps:['Stand facing a wall, ball at your chest.','Step in and push the ball forward explosively.','Follow through with straight arms.','Catch it off the wall and repeat.'],avoid:['Pushing slowly','Leaning back']},
  jump:{a:'A100,140 T110,140 K112,120 P86,108 S104,74 H110,61 E90,88 W78,102',b:'A150,140 T160,140 K162,120 P136,108 S154,74 H160,61 E168,80 W180,72',steps:['Stand with feet hip-width.','Swing your arms back and dip into a quarter squat.','Swing your arms forward and jump as far as you can.','Land softly with bent knees and hold the landing.'],avoid:['Landing stiff-legged','Knees caving in on landing']}
 };
-const EX_PAT={bench:'bench',dbbench:'bench',cgbench:'bench',inclinebb:'incline',inclinedb:'incline',dipchest:'dip',dips:'dip',benchdip:'dip',pushup:'pushup',pikepush:'pike',cablefly:'fly',dbfly:'fly',pullup:'pullup',chinup:'pullup',pulldown:'pulldown',cgpulldown:'pulldown',bandpulldown:'pulldown',straightarm:'straightarm',bbrow:'row',dbrow:'row',seatedrow:'seatedrow',csrow:'csrow',invrow:'invrow',facepull:'facepull',pullapart:'pullapart',ohp:'ohp',standdbohp:'ohp',dbohp:'seatpress',latraise:'lateral',cablelat:'lateral',reardelt:'lateral',bbcurl:'curl',dbcurl:'curl',hammer:'curl',cablecurl:'curl',bandcurl:'curl',inclinecurl:'curl',preacher:'preacher',pushdown:'pushdown',bandpush:'pushdown',ohext:'ohext',skull:'skull',squat:'squat',frontsquat:'fsquat',goblet:'fsquat',bwsquat:'fsquat',legpress:'legpress',bss:'lunge',lunge:'lunge',stepup:'stepup',legext:'legext',rdl:'hinge',deadlift:'hinge',trapdl:'hinge',dbrdl:'hinge',slrdl:'hinge',pullthrough:'hinge',swing:'swing',legcurl:'legcurl',hipthrust:'thrust',dbthrust:'thrust',bridge:'thrust',bandwalk:'bandwalk',calfdb:'calf',calfpress:'calf',calfsl:'calf',plank:'plank',sideplank:'plank',hkr:'hkr',cablecrunch:'crunch',pallof:'pallof',pallofband:'pallof',deadbug:'deadbug',mbslam:'slam',mbrot:'throw',mbchest:'chestpass',broadjump:'jump'};
+const EX_PAT={bench:'bench',dbbench:'bench',cgbench:'bench',inclinebb:'incline',inclinedb:'incline',dipchest:'dip',dips:'dip',benchdip:'dip',pushup:'pushup',pikepush:'pike',cablefly:'fly',dbfly:'fly',pullup:'pullup',chinup:'pullup',pulldown:'pulldown',cgpulldown:'pulldown',bandpulldown:'pulldown',straightarm:'straightarm',bbrow:'row',dbrow:'row',seatedrow:'seatedrow',csrow:'csrow',invrow:'invrow',facepull:'facepull',pullapart:'pullapart',ohp:'ohp',standdbohp:'ohp',dbohp:'seatpress',latraise:'lateral',cablelat:'lateral',reardelt:'lateral',bbcurl:'curl',dbcurl:'curl',hammer:'curl',cablecurl:'curl',bandcurl:'curl',inclinecurl:'curl',preacher:'preacher',pushdown:'pushdown',bandpush:'pushdown',ohext:'ohext',skull:'skull',squat:'squat',frontsquat:'fsquat',goblet:'fsquat',bwsquat:'fsquat',legpress:'legpress',bss:'lunge',lunge:'lunge',stepup:'stepup',legext:'legext',rdl:'hinge',deadlift:'hinge',trapdl:'hinge',dbrdl:'hinge',slrdl:'hinge',pullthrough:'hinge',swing:'swing',legcurl:'legcurl',hipthrust:'thrust',dbthrust:'thrust',bridge:'thrust',bandwalk:'bandwalk',calfdb:'calf',calfpress:'calf',calfsl:'calf',plank:'plank',sideplank:'plank',hkr:'hkr',cablecrunch:'crunch',pallof:'pallof',pallofband:'pallof',deadbug:'deadbug',mbslam:'slam',mbrot:'throw',mbchest:'chestpass',broadjump:'jump',smithbench:'bench',pecdeck:'fly',revpecdeck:'lateral',tbarrow:'row',ezcurl:'curl',ezpreacher:'preacher',ezskull:'skull',smithsquat:'squat',standcalfm:'calf',assistpull:'pullup',assistdip:'dip'};
 function parsePose(str){const o={};str.replace(/([A-Za-z])(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g,(_,k,x,y)=>{o[k]=[+x,+y];});return o;}
 function poseSVG(ex,pat,poseStr,label){
   const P=parsePose(poseStr),line=(a,b,w,c,op)=>a&&b?`<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${c||'var(--ink)'}" stroke-width="${w||6}" stroke-linecap="round"${op?` opacity="${op}"`:''}/>`:'';
@@ -1155,9 +1178,11 @@ function summaryCard(){
   const s=S.summary;
   return `<section class="card" style="border-color:var(--good)"><div class="eyebrow" style="color:var(--good)">Workout saved</div><h2 style="margin:4px 0 4px">${esc(s.name)} done</h2>${s.headline?`<p class="cheer" style="border-left-color:var(--good);margin:4px 0 8px">${esc(s.headline)}${s.week?' '+esc(s.week):''}</p>`:''}<ul class="sum" style="margin:0;padding-left:18px">${s.rows.map(r=>`<li><b>${esc(r.n)}</b>: <span class="${r.up?'up':''}">${esc(r.note)}</span></li>`).join('')}</ul><div style="display:flex;gap:18px;margin-top:10px;flex-wrap:wrap"><button class="link" data-act="dismiss">Close</button>${S.undo&&Date.now()-S.undo.t<20*60e3?`<button class="link" style="color:var(--bad)" data-act="undofin">Undo: I wasn’t done</button>`:''}</div></section>`;
 }
+// Home / Gym switch: Atlas rebuilds the plan from that place's equipment.
+function locToggle(p){const g=atGym(p);return `<div class="energy" role="group" aria-label="Where you’re training" style="grid-template-columns:1fr 1fr">${[['home','At home'],['gym','At the gym']].map(([k,l])=>`<button data-act="loc" data-v="${k}" aria-pressed="${(g?'gym':'home')===k}">${l}</button>`).join('')}</div>${g?`<p class="note" style="margin-top:-6px">Using your gym equipment (${(p.gymEquip||GYM_DEFAULT).length} items). Change it in Profile → Edit.</p>`:''}`;}
 function todayView(p,plan){
   const t=todayIdx(),sel=S.viewDay??t,day=dayFor(p,plan,sel),c=plan.cardio[sel];
-  let h=strip(plan,sel,true);
+  let h=locToggle(p)+strip(plan,sel,true);
   if(S.summary)h+=summaryCard();
   const pre=!!(p.start&&isoDate()<p.start);
   if(pre&&!S.guide){
@@ -1470,10 +1495,10 @@ function progressView(p,plan){
 }
 function profileView(p){
   let h=`<section class="dayhead"><div class="eyebrow">Profile</div><h1>${esc(p.name)}</h1></section>`;
-  h+=`<section class="card"><dl class="kv"><dt>Age</dt><dd>${p.age}</dd><dt>Height</dt><dd>${htText(p.ht)}</dd><dt>Weight</dt><dd>${p.wt} lb</dd><dt>Experience</dt><dd>${EXP[p.exp][0]}</dd><dt>Goal</dt><dd>${GOALS[p.goal][0]}</dd><dt>Focus</dt><dd>${(p.focus||[]).length?p.focus.map(m=>MUSCLES[m]).join(', '):'Balanced'}</dd><dt>Lifting days</dt><dd>${[...p.days].sort().map(d=>WD[d]).join(', ')}</dd><dt>Session</dt><dd>${p.minutes} min</dd><dt>Cardio</dt><dd>${CGOALS[p.cGoal][0]}${p.cGoal!=='none'?' · '+(p.cModes||[]).map(m=>CMN[m]).join(', '):''}</dd><dt>Equipment</dt><dd>${(p.equip||[]).length} items</dd></dl><button class="btn sec wide" style="margin-top:14px" data-act="edit">Edit profile and goals</button></section>`;
+  h+=`<section class="card"><dl class="kv"><dt>Age</dt><dd>${p.age}</dd><dt>Height</dt><dd>${htText(p.ht)}</dd><dt>Weight</dt><dd>${p.wt} lb</dd><dt>Experience</dt><dd>${EXP[p.exp][0]}</dd><dt>Goal</dt><dd>${GOALS[p.goal][0]}</dd><dt>Focus</dt><dd>${(p.focus||[]).length?p.focus.map(m=>MUSCLES[m]).join(', '):'Balanced'}</dd><dt>Lifting days</dt><dd>${[...p.days].sort().map(d=>WD[d]).join(', ')}</dd><dt>Session</dt><dd>${p.minutes} min</dd><dt>Cardio</dt><dd>${CGOALS[p.cGoal][0]}${p.cGoal!=='none'?' · '+(p.cModes||[]).map(m=>CMN[m]).join(', '):''}</dd><dt>Home equipment</dt><dd>${(p.equip||[]).length} items</dd><dt>Gym equipment</dt><dd>${(p.gymEquip||GYM_DEFAULT).length} items</dd><dt>Training at</dt><dd>${atGym(p)?'Gym':'Home'}</dd></dl><button class="btn sec wide" style="margin-top:14px" data-act="edit">Edit profile and goals</button></section>`;
   h+=`<section class="card"><h2>Household</h2><p class="note" style="margin:4px 0 6px">Each person gets their own plan, weights and history.</p><div class="people">${S.profiles.map(q=>`<div class="person"><span class="av" style="width:30px;height:30px;border-radius:50%;background:${q.id===p.id?'var(--accent)':'var(--surface-2)'};color:${q.id===p.id?'var(--accent-ink)':'var(--ink)'};display:grid;place-items:center;font-weight:700">${initials(q.name)}</span><span><b>${esc(q.name)}</b><br><small class="note">${GOALS[q.goal][0]} · ${q.days.length} days</small></span>${q.id===p.id?'<span class="tag in">Active</span>':`<button class="ghost" data-act="switch" data-id="${q.id}">Switch</button>`}</div>`).join('')}</div><button class="btn sec wide" style="margin-top:10px" data-act="add">Add a person</button></section>`;
   h+=backupCard();
-  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 7.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
+  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 8.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
   if(S.confirmDel===p.id)h+=`<div class="banner bad">Delete ${esc(p.name)} and all of their logged workouts? This can’t be undone.<div style="display:flex;gap:8px;margin-top:10px"><button class="btn danger" data-act="delyes">Delete</button><button class="btn sec" data-act="delno">Cancel</button></div></div>`;
   else h+=`<button class="link" style="color:var(--bad);align-self:flex-start" data-act="del">Delete ${esc(p.name)}</button>`;
   return h;
@@ -1503,7 +1528,8 @@ function setupView(p){
    <label class="f"><span>Start date</span><input id="f-start" name="start" type="date" value="${esc(d.start||nextMonday())}"><small>Before this date Atlas shows a countdown and a preview of your plan. Muscle tracking starts on this day.</small></label>
    <label class="f"><span>Time per session</span><select id="f-min" name="minutes">${[30,45,60,75,90].map(m=>`<option value="${m}" ${+d.minutes===m?'selected':''}>${m} minutes</option>`).join('')}</select></label>
   </fieldset>
-  <fieldset><legend>Equipment</legend><div class="f"><span>What you have</span>${boxes('equip',EQUIP,d.equip||[])}<small>Atlas only picks exercises you can do with what’s checked.</small></div></fieldset>
+  <fieldset><legend>Home equipment</legend><div class="f"><span>What you have at home</span>${boxes('equip',EQUIP,d.equip||[])}<small>Atlas only picks exercises you can do with what’s checked.</small></div></fieldset>
+  <fieldset><legend>Gym equipment</legend><div class="f"><span>What your gym has</span>${boxes('gymEquip',EQUIP,d.gymEquip||GYM_DEFAULT)}<small>Used when you tap “At the gym” on the Today screen.</small></div></fieldset>
   <fieldset><legend>Cardio</legend>
    <div class="f"><span>Cardio goal</span>${radios('cGoal',CGOALS,d.cGoal)}</div>
    <div class="f"><span>Ways you like to do cardio</span>${boxes('cModes',CMODES,d.cModes||[])}</div>
@@ -1635,7 +1661,7 @@ function readForm(f){
   const fd=new FormData(f);
   const days=fd.getAll('day').map(Number);
   const start=/^\d{4}-\d{2}-\d{2}$/.test(String(fd.get('start')||''))?String(fd.get('start')):isoDate();
-  const o={start,name:String(fd.get('name')||'').trim(),age:Math.round(+fd.get('age')),sex:fd.get('sex'),ht:(+fd.get('ft'))*12+(+fd.get('in')),wt:+fd.get('wt'),exp:fd.get('exp'),goal:fd.get('goal'),focus:fd.getAll('focus'),days,minutes:+fd.get('minutes'),equip:fd.getAll('equip'),cGoal:fd.get('cGoal'),cModes:fd.getAll('cModes'),cMin:+fd.get('cMin')};
+  const o={start,name:String(fd.get('name')||'').trim(),age:Math.round(+fd.get('age')),sex:fd.get('sex'),ht:(+fd.get('ft'))*12+(+fd.get('in')),wt:+fd.get('wt'),exp:fd.get('exp'),goal:fd.get('goal'),focus:fd.getAll('focus'),days,minutes:+fd.get('minutes'),equip:fd.getAll('equip'),gymEquip:fd.getAll('gymEquip'),cGoal:fd.get('cGoal'),cModes:fd.getAll('cModes'),cMin:+fd.get('cMin')};
   if(!o.name)return[null,'Add a name.'];
   if(!(o.age>=13&&o.age<=90))return[null,'Atlas is built for ages 13 to 90. Check the age.'];
   if(!(o.wt>=70&&o.wt<=450))return[null,'Enter a weight between 70 and 450 lb.'];
@@ -1778,6 +1804,7 @@ document.addEventListener('click',e=>{
       else{p.over=p.over||{};p.over[S.sheet.key]=b.dataset.ex;}S.sheet=null;Store.save(p);const y=window.scrollY;render();window.scrollTo({top:y});break;}
     case 'openday':S.openDay=S.openDay===+b.dataset.wd?null:+b.dataset.wd;render();break;
     case 'libm':S.libM=b.dataset.m;render();break;
+    case 'loc':if(b.dataset.v==='gym')p.loc='gym';else delete p.loc;Store.save(p);keepScroll(()=>{});break;
     case 'edit':S.editing=true;S.formErr='';render();window.scrollTo({top:0});break;
     case 'add':S.adding=true;S.formErr='';render();window.scrollTo({top:0});break;
     case 'cancel':S.editing=false;S.adding=false;S.formErr='';render();break;
