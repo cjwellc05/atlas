@@ -135,7 +135,7 @@ h2{font-family:var(--f-display);font-weight:700;font-size:22px;letter-spacing:.0
 .wname{font-weight:700}
 .wsub{font-size:13px;color:var(--muted)}
 .mini{display:flex;flex-direction:column;border-top:1px solid var(--line);margin-top:4px}
-.mini div{display:grid;grid-template-columns:30px 1fr auto auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.mini div{display:grid;grid-template-columns:24px minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
 .mini div:last-child{border-bottom:0}
 .mini .l{font-family:var(--f-mono);font-size:12px;color:var(--accent);font-weight:600}
 .mini .w{font-family:var(--f-mono);font-size:13px;color:var(--muted);white-space:nowrap}
@@ -557,18 +557,22 @@ function rirText(p,it,meso){
   if(it.ex.k==='c')return cautious?'Stop 2–3 reps short of failure':'Stop 1–2 reps short of failure';
   return cautious?'Last set: 1–2 reps short of failure':'Last set: go to failure with good form';
 }
+// Exercises the person took out of one workout: slot key -> exercise id.
+function removedOf(p,di){const r=p.rm||{},re=new RegExp('^d'+di+'[a-z]');return Object.keys(r).filter(k=>re.test(k)&&BY[r[k]]).map(k=>({key:k,ex:BY[r[k]]}));}
+function removedMuscles(p,di){return new Set(removedOf(p,di).map(x=>x.ex.m));}
 // Sets each exercise so every muscle hits its weekly target, spread across the week.
 function allocateVolume(p,days,eq,uses,meso){
   const ms=Object.keys(GROW_PREF),n=sessionCount(p.minutes);
   const prim=m=>days.flatMap(d=>d.items.filter(it=>it.ex.m===m));
+  const rmd=d=>removedMuscles(p,d.di),size=d=>d.items.filter(it=>!it.added).length+removedOf(p,d.di).length;
   // Coverage: every muscle at least twice a week when there are 2+ days (once on a 1-day plan).
   const need=Math.min(2,days.length);
   ms.forEach(m=>{
     let have=new Set(days.filter(d=>d.items.some(it=>it.ex.m===m)).map(d=>d.di)).size;
-    const order=[...days].sort((a,b)=>a.items.length-b.items.length);
+    const order=[...days].sort((a,b)=>size(a)-size(b));
     for(const d of order){
       if(have>=need)break;
-      if(d.items.some(it=>it.ex.m===m)||d.items.length>n+((m==='calves'||m==='core')?2:1))continue;
+      if(d.items.some(it=>it.ex.m===m)||rmd(d).has(m)||size(d)>n+((m==='calves'||m==='core')?2:1))continue;
       const ex=pickEx({m,k:'i',seed:(p.seeds||{})[d.di]},eq,d.used,uses,p);if(!ex)break;
       d.used.add(ex.id);uses[ex.id]=(uses[ex.id]||0)+1;
       const key='d'+d.di+'c'+m,ov=p.over&&p.over[key];
@@ -583,7 +587,7 @@ function allocateVolume(p,days,eq,uses,meso){
       const sec=days.flatMap(d=>d.items).filter(it=>it.ex.s.includes(m)).reduce((a,it)=>a+it.rx.sets*0.5,0);
       const cap=its.reduce((a,it)=>a+(it.ex.k==='c'?4:5),0)*0.85+sec;
       if(cap>=T-1)return;
-      const d=[...days].filter(x=>x.items.filter(it=>it.ex.m===m).length<2&&x.items.length<=n+1).sort((a,b)=>a.items.length-b.items.length)[0];if(!d)return;
+      const d=[...days].filter(x=>x.items.filter(it=>it.ex.m===m).length<2&&size(x)<=n+1&&!rmd(x).has(m)).sort((a,b)=>size(a)-size(b))[0];if(!d)return;
       const ex=pickEx({m,k:'i',seed:(p.seeds||{})[d.di]},eq,d.used,uses,p);if(!ex)return;
       d.used.add(ex.id);uses[ex.id]=(uses[ex.id]||0)+1;d.items.push(makeItem(p,ex,'d'+d.di+'v'+m));
     }
@@ -611,9 +615,11 @@ function buildPlan(p){
     const seed=(p.seeds||{})[di];
     const slots=T.slots.map((s,si)=>({m:s[0],k:s[1],pref:s[2],key:'d'+di+'s'+si,seed}));
     if(p.goal==='athletic')slots.unshift({m:'power',k:'c',key:'d'+di+'p',seed});
-    const used=new Set();let items=[];
+    const rm=p.rm||{},adds=[...new Set((p.adds||{})[di]||[])].filter(id=>BY[id]&&avail(BY[id],eq));
+    const used=new Set(adds);let items=[],filled=0;
     for(const sl of slots){
-      if(items.length>=n)break;
+      if(filled>=n)break;
+      if(rm[sl.key]){filled++;continue;}
       let ex=null;const ov=p.over&&p.over[sl.key];
       if(ov&&BY[ov]&&avail(BY[ov],eq)&&!used.has(ov))ex=BY[ov];
       if(!ex)ex=pickEx(sl,eq,used,uses,p);
@@ -623,8 +629,10 @@ function buildPlan(p){
       if(focus.has(ex.m))rx.sets+=1;
       const pr=(p.prog||{})[ex.id]||{},bonus=loaded(ex)?0:(pr.bonus||0);
       const w=loaded(ex)?(pr.w??startWeight(ex,p,rx)):null;
-      items.push({key:sl.key,m:sl.m,ex,rx,lo:rx.lo+bonus,hi:rx.hi+bonus,w,fresh:pr.w==null});
+      items.push({key:sl.key,m:sl.m,ex,rx,lo:rx.lo+bonus,hi:rx.hi+bonus,w,fresh:pr.w==null});filled++;
     }
+    // Exercises the person added to this workout themselves.
+    adds.forEach(id=>{const ex=BY[id];uses[id]=(uses[id]||0)+1;const it=makeItem(p,ex,'d'+di+'u'+id);if(focus.has(ex.m))it.rx.sets+=1;it.added=true;items.push(it);});
     return{wd,di,tk,name:T.name,items,used};
   });
   const meso=mesoInfo(p);
@@ -1101,14 +1109,22 @@ function guideView(p,day){
   ${nx?`<div class="upnext">Up next: <b>${esc(nx[0].ex.n)}</b>, set ${nx[1]+1}${nx[0]===it?'':(it.partner===nx[0]?' (paired: go straight there)':'')}</div>`:''}${skippedHTML(day,d)}</section>`;
   return h;
 }
-function exCard(it,d,p,meso){
+// Remove works on the workout's own exercises, not today-only catch-up ones, and always leaves at least one.
+const canRm=(it,ctx)=>ctx&&!ctx.catchup&&ctx.di!=null&&!it.auto&&!it.extra&&ctx.items.length>1;
+// "Add an exercise" button plus the list of exercises taken out of this workout, with a way to put each back.
+function customHTML(p,day){
+  if(!day||day.catchup||day.di==null)return '';
+  const gone=removedOf(p,day.di);
+  return `${gone.length?`<div class="card"><div class="eyebrow">Removed from ${esc(day.name)}</div>${gone.map(g=>`<div class="sess"><b>${esc(g.ex.n)}</b><button class="link" data-act="putback" data-key="${g.key}">Put back</button></div>`).join('')}</div>`:''}<button class="btn sec wide" data-act="addex" data-di="${day.di}">+ Add an exercise</button>`;
+}
+function exCard(it,d,p,meso,ctx){
   const ex=it.ex,ds=d[it.key],ld=it.w!=null,time=ex.load==='time';
   const rows=ds.sets.map((s,i)=>`<div class="setrow ${s.done?'done':''}"><span class="sn">${i+1}</span>${ld?`<label class="fld"><input id="w-${it.key}-${i}" type="number" inputmode="decimal" step="2.5" min="0" value="${esc(s.w)}" data-set="${it.key}|${i}|w" aria-label="Set ${i+1} weight"><span>lb</span></label>`:`<span class="fld bwtag">${wtag(ex)}</span>`}<label class="fld"><input id="r-${it.key}-${i}" type="number" inputmode="numeric" min="0" value="${esc(s.r)}" placeholder="${it.hi}" data-set="${it.key}|${i}|r" aria-label="Set ${i+1} ${time?'seconds':'reps'}"><span>${time?'sec':'reps'}</span></label><button class="chk" data-act="done" data-k="${it.key}" data-i="${i}" aria-pressed="${!!s.done}" aria-label="Set ${i+1} done">${CHECK}</button></div>`).join('');
   let hint='';
   if(ld&&it.fresh)hint='Starting estimate. If the last rep of set 1 feels easy, add weight; if form breaks down, drop it.';
   else if(!ld&&HARD_BW.has(ex.id))hint='Can’t reach the low end yet? Use a band for help or do slow 4-second lowering reps.';
   if(ex.m==='power')hint='Every rep at full speed. Stop the set if you slow down.';
-  return `<article class="ex ${it.partner?'paired':''}"><div class="exhead"><span class="lab">${it.label}</span><div class="exname"><h3>${esc(ex.n)}</h3><div class="mus">${MUSCLES[ex.m]}${ex.s.length?' · '+ex.s.map(m=>MUSCLES[m]).join(', '):''}</div></div><div class="exbtns"><button class="ghost" data-act="info" data-ex="${ex.id}">How to</button>${it.extra?`<button class="ghost" data-act="rmx" data-m="${it.m}">Remove from today</button>`:`<button class="ghost" data-act="swap" data-key="${it.key}" data-m="${it.m}" data-cur="${ex.id}">Swap exercise</button>`}</div></div>${it.extra||it.auto?`<p class="hint" style="margin-top:-4px">${it.auto?'Added automatically':'Added'} to catch up ${MUSCLES[ex.m].toLowerCase()} this week.</p>`:''}
+  return `<article class="ex ${it.partner?'paired':''}"><div class="exhead"><span class="lab">${it.label}</span><div class="exname"><h3>${esc(ex.n)}</h3><div class="mus">${MUSCLES[ex.m]}${ex.s.length?' · '+ex.s.map(m=>MUSCLES[m]).join(', '):''}</div></div><div class="exbtns"><button class="ghost" data-act="info" data-ex="${ex.id}">How to</button>${it.extra?`<button class="ghost" data-act="rmx" data-m="${it.m}">Remove from today</button>`:`<button class="ghost" data-act="swap" data-key="${it.key}" data-m="${it.m}" data-cur="${ex.id}">Swap exercise</button>${canRm(it,ctx)?`<button class="ghost" data-act="rmex" data-key="${it.key}" data-ex="${ex.id}" data-di="${ctx.di}">Remove</button>`:''}`}</div></div>${it.added?`<p class="hint" style="margin-top:-4px">You added this to ${esc(ctx.name)}.</p>`:''}${it.extra||it.auto?`<p class="hint" style="margin-top:-4px">${it.auto?'Added automatically':'Added'} to catch up ${MUSCLES[ex.m].toLowerCase()} this week.</p>`:''}
   <div class="rx"><div class="target">${ld?`<b>${it.w}</b><small>lb${ex.load==='db'?' each':''}</small>`:`<b class="sm">${wtag(ex)}</b>`}</div><div class="rxline">${it.rx.sets} × ${it.lo}–${it.hi}${time?' sec':' reps'}<br><span>Rest ${fmtRest(it.rx.rest)}${it.partner?` · alternate with ${it.partner.label}`:''}</span>${p?`<br><span class="effort">${rirText(p,it,meso)}</span>`:''}</div></div>
   ${p&&lastLine(p,ex)?`<p class="last">${esc(lastLine(p,ex))}</p>`:''}${ds.sets.some(s=>s.skip&&!s.done)?`<p class="hint">Skipped in guided mode. <button class="link" data-act="unskip" data-k="${it.key}">Un-skip</button></p>`:''}${hint?`<p class="hint">${hint}</p>`:''}<div class="sets">${rows}</div></article>`;
 }
@@ -1156,7 +1172,8 @@ function todayView(p,plan){
     const logged=Object.values(d).some(v=>v&&v.sets&&v.sets.some(s=>s.done||s.skip));
     if(!day.catchup&&logged)h+=`<p class="note" style="text-align:center">Shuffle is off once you’ve logged a set. Use Restart workout below to shuffle again.</p>`;
     if(!day.catchup&&!logged)h+=`<button class="btn sec wide" data-act="shuffle" data-di="${day.di}">${SHUF}Shuffle exercises</button><p class="note" style="text-align:center;margin-top:-6px">New exercises for the same muscles. They stick until you shuffle again.</p>`;
-    h+=day.items.map(it=>exCard(it,d,p,plan.meso)).join('');
+    h+=day.items.map(it=>exCard(it,d,p,plan.meso,day)).join('');
+    h+=customHTML(p,day);
     if(S.flash)h+=`<p class="formerr">${esc(S.flash)}</p>`;
     h+=`<button class="btn wide" data-act="finish">Finish workout</button><p class="note" style="text-align:center">Atlas sets next session’s weights from what you log.</p>`;
     h+=restartHTML(d);
@@ -1174,7 +1191,7 @@ function weekView(p,plan){
     h+=`<div class="wrow ${wd===t?'istoday':''}"><div class="wday"><b>${WD[wd]}</b><span>${fmtDay(dateFor(wd))}</span></div><div class="wbody"><div class="chips">${L?`<span class="pill lift">${L.done?'✓ Done':'Lift'}</span>${L.missed?'<span class="pill rest">Missed</span>':''}`:''}${C?`<span class="pill cardio">${C.title} · ${C.min} min</span>`:''}${!L&&!C?'<span class="pill rest">Rest</span>':''}</div>`;
     if(L){
       h+=`<div><div class="wname">${esc(L.name)} <span class="wsub">· ${L.mins} min</span></div><div class="wsub">${listJoin([...new Set(L.items.map(i=>MUSCLES[i.ex.m]))])}</div></div><button class="link" style="text-align:left" data-act="openday" data-wd="${wd}" aria-expanded="${open}">${open?'Hide exercises':'Show exercises'}</button>`;
-      if(open)h+=`<div class="mini">${L.items.map(it=>`<div><span class="l">${it.label}</span><span>${esc(it.ex.n)}</span><span class="w">${it.rx.sets}×${it.lo}–${it.hi}${it.w!=null?' · '+it.w+' lb':''}</span><button class="ghost" data-act="swap" data-key="${it.key}" data-m="${it.m}" data-cur="${it.ex.id}" aria-label="Swap ${esc(it.ex.n)}">Swap</button></div>`).join('')}</div>`;
+      if(open)h+=`<div class="mini">${L.items.map(it=>`<div><span class="l">${it.label}</span><span>${esc(it.ex.n)}<br><span class="w">${it.rx.sets}×${it.lo}–${it.hi}${it.w!=null?' · '+it.w+' lb':''}</span></span><button class="ghost" data-act="swap" data-key="${it.key}" data-m="${it.m}" data-cur="${it.ex.id}" aria-label="Swap ${esc(it.ex.n)}">Swap</button>${canRm(it,L)?`<button class="ghost" data-act="rmex" data-key="${it.key}" data-ex="${it.ex.id}" data-di="${L.di}" aria-label="Remove ${esc(it.ex.n)}" style="padding:5px 8px">✕</button>`:'<span></span>'}</div>`).join('')}</div>${customHTML(p,L)}`;
     }
     if(C)h+=`<div class="wsub">${esc(CMN[C.mode]||C.mode)}: ${C.detail}${C.after?' '+C.after:''}</div>`;
     h+=`</div></div>`;
@@ -1430,7 +1447,7 @@ function profileView(p){
   h+=`<section class="card"><dl class="kv"><dt>Age</dt><dd>${p.age}</dd><dt>Height</dt><dd>${htText(p.ht)}</dd><dt>Weight</dt><dd>${p.wt} lb</dd><dt>Experience</dt><dd>${EXP[p.exp][0]}</dd><dt>Goal</dt><dd>${GOALS[p.goal][0]}</dd><dt>Focus</dt><dd>${(p.focus||[]).length?p.focus.map(m=>MUSCLES[m]).join(', '):'Balanced'}</dd><dt>Lifting days</dt><dd>${[...p.days].sort().map(d=>WD[d]).join(', ')}</dd><dt>Session</dt><dd>${p.minutes} min</dd><dt>Cardio</dt><dd>${CGOALS[p.cGoal][0]}${p.cGoal!=='none'?' · '+(p.cModes||[]).map(m=>CMN[m]).join(', '):''}</dd><dt>Equipment</dt><dd>${(p.equip||[]).length} items</dd></dl><button class="btn sec wide" style="margin-top:14px" data-act="edit">Edit profile and goals</button></section>`;
   h+=`<section class="card"><h2>Household</h2><p class="note" style="margin:4px 0 6px">Each person gets their own plan, weights and history.</p><div class="people">${S.profiles.map(q=>`<div class="person"><span class="av" style="width:30px;height:30px;border-radius:50%;background:${q.id===p.id?'var(--accent)':'var(--surface-2)'};color:${q.id===p.id?'var(--accent-ink)':'var(--ink)'};display:grid;place-items:center;font-weight:700">${initials(q.name)}</span><span><b>${esc(q.name)}</b><br><small class="note">${GOALS[q.goal][0]} · ${q.days.length} days</small></span>${q.id===p.id?'<span class="tag in">Active</span>':`<button class="ghost" data-act="switch" data-id="${q.id}">Switch</button>`}</div>`).join('')}</div><button class="btn sec wide" style="margin-top:10px" data-act="add">Add a person</button></section>`;
   h+=backupCard();
-  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 4.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
+  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 5.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
   if(S.confirmDel===p.id)h+=`<div class="banner bad">Delete ${esc(p.name)} and all of their logged workouts? This can’t be undone.<div style="display:flex;gap:8px;margin-top:10px"><button class="btn danger" data-act="delyes">Delete</button><button class="btn sec" data-act="delno">Cancel</button></div></div>`;
   else h+=`<button class="link" style="color:var(--bad);align-self:flex-start" data-act="del">Delete ${esc(p.name)}</button>`;
   return h;
@@ -1484,6 +1501,12 @@ function sheetView(p,plan){
     const list=LIB.filter(x=>x.m===sh.m).sort((a,b)=>(avail(b,eq)-avail(a,eq))||(a.i-b.i));
     const usedToday=new Set();const di=+sh.key.match(/^d(\d+)/)[1];plan.days[di].items.forEach(i=>usedToday.add(i.ex.id));
     return `<div class="scrim" data-act="close"><div class="sheet" role="dialog" aria-modal="true" aria-label="Swap exercise" data-stop="1"><div class="sheethead"><div><div class="eyebrow">${MUSCLES[sh.m]}</div><h2>Choose an exercise</h2></div><button class="ghost" data-act="close">Close</button></div><p class="note">Everything that trains your ${MUSCLES[sh.m].toLowerCase()}. Your choice sticks for this slot each week.</p>${list.map(x=>{const ok=avail(x,eq),cur=x.id===sh.cur,dup=!cur&&usedToday.has(x.id);return `<button class="opt" data-act="pick" data-ex="${x.id}" ${cur?'aria-current="true"':''} ${!ok||dup?'disabled':''}><span><b>${esc(x.n)}</b><small>${x.k==='c'?'Compound':'Isolation'}${x.s.length?' · also '+x.s.map(m=>MUSCLES[m].toLowerCase()).join(', '):''}${!ok?' · needs '+x.eq.filter(e=>!eq.has(e)).map(e=>EQN[e].toLowerCase()).join(', '):''}${dup?' · already in this workout':''}</small></span><span class="tag ${cur?'in':''}">${cur?'Current':''}</span></button>`;}).join('')}</div></div>`;
+  }
+  if(sh.type==='add'){
+    const d=plan.days[sh.di];if(!d)return '';
+    const inDay=new Set(d.items.map(i=>i.ex.id)),ms=Object.keys(MUSCLES),m=sh.m||'chest';
+    const list=LIB.filter(x=>x.m===m).sort((a,b)=>(avail(b,eq)-avail(a,eq))||(a.i-b.i));
+    return `<div class="scrim" data-act="close"><div class="sheet" role="dialog" aria-modal="true" aria-label="Add an exercise" data-stop="1"><div class="sheethead"><div><div class="eyebrow">${esc(d.name)}</div><h2>Add an exercise</h2></div><button class="ghost" data-act="close">Close</button></div><p class="note">It joins ${esc(d.name)} every time that workout comes up, with weights set like any other lift.</p><div class="mchips" style="flex:none">${ms.map(k=>`<button data-act="addexm" data-m="${k}" aria-pressed="${k===m}">${MUSCLES[k]}</button>`).join('')}</div>${list.map(x=>{const ok=avail(x,eq),dup=inDay.has(x.id);return `<button class="opt" data-act="addexpick" data-ex="${x.id}" ${!ok||dup?'disabled':''}><span><b>${esc(x.n)}</b><small>${x.k==='c'?'Compound':'Isolation'}${x.s.length?' · also '+x.s.map(m=>MUSCLES[m].toLowerCase()).join(', '):''}${!ok?' · needs '+x.eq.filter(e=>!eq.has(e)).map(e=>EQN[e].toLowerCase()).join(', '):''}${dup?' · already in this workout':''}</small></span><span class="tag ${dup?'in':''}">${dup?'In':'Add'}</span></button>`;}).join('')}</div></div>`;
   }
   if(sh.type==='info'){
     const x=BY[sh.ex];
@@ -1599,7 +1622,7 @@ document.addEventListener('submit',e=>{
   S.formErr='';
   if(S.editing){
     const p=active();
-    if(p.days.length!==o.days.length)p.over={};
+    if(p.days.length!==o.days.length){p.over={};delete p.rm;delete p.adds;}
     Object.assign(p,o);Store.save(p);S.editing=false;
   }else{
     const p={id:uid(),created:Date.now(),...o,over:{},prog:{},sessions:[]};
@@ -1696,12 +1719,22 @@ document.addEventListener('click',e=>{
       if(!p.extra.list.some(x=>x.m===m))p.extra.list.push({m,id:ex.id});
       S.viewDay=wd;Store.save(p);keepScroll(()=>{});break;}
     case 'rmx':if(p.extra){p.extra.list=p.extra.list.filter(x=>x.m!==b.dataset.m);if(!p.extra.list.length)delete p.extra;Store.save(p);}keepScroll(()=>{});break;
+    case 'rmex':{const k=b.dataset.key,ua=k.match(/^d(\d+)u(.+)$/);
+      if(ua){p.adds=p.adds||{};p.adds[ua[1]]=(p.adds[ua[1]]||[]).filter(id=>id!==ua[2]);if(!p.adds[ua[1]].length)delete p.adds[ua[1]];}
+      else{p.rm=p.rm||{};p.rm[k]=b.dataset.ex;}
+      Store.save(p);keepScroll(()=>{});break;}
+    case 'putback':if(p.rm){delete p.rm[b.dataset.key];Store.save(p);}keepScroll(()=>{});break;
+    case 'addex':S.sheet={type:'add',di:+b.dataset.di,m:'chest'};keepScroll(()=>{});break;
+    case 'addexm':S.sheet.m=b.dataset.m;{const sc=document.querySelector('.sheet'),y=sc?sc.scrollTop:0;keepScroll(()=>{});const s2=document.querySelector('.sheet');if(s2)s2.scrollTop=y;}break;
+    case 'addexpick':{const di=S.sheet.di;p.adds=p.adds||{};p.adds[di]=[...(p.adds[di]||[]),b.dataset.ex];S.sheet=null;Store.save(p);keepScroll(()=>{});break;}
     case 'dismiss':S.summary=null;S.undo=null;render();break;
     case 'skiptimer':S.timer=null;renderTimer();break;
     case 'swap':S.sheet={type:'swap',key:b.dataset.key,m:b.dataset.m,cur:b.dataset.cur};{const y=window.scrollY;render();window.scrollTo({top:y});}break;
     case 'info':S.sheet={type:'info',ex:b.dataset.ex};{const y=window.scrollY;render();window.scrollTo({top:y});}break;
     case 'close':S.sheet=null;{const y=window.scrollY;render();window.scrollTo({top:y});}break;
-    case 'pick':{p.over=p.over||{};p.over[S.sheet.key]=b.dataset.ex;S.sheet=null;Store.save(p);const y=window.scrollY;render();window.scrollTo({top:y});break;}
+    case 'pick':{const ua=S.sheet.key.match(/^d(\d+)u(.+)$/);
+      if(ua){const L=(p.adds||{})[ua[1]]||[];p.adds[ua[1]]=L.map(id=>id===ua[2]?b.dataset.ex:id);}
+      else{p.over=p.over||{};p.over[S.sheet.key]=b.dataset.ex;}S.sheet=null;Store.save(p);const y=window.scrollY;render();window.scrollTo({top:y});break;}
     case 'openday':S.openDay=S.openDay===+b.dataset.wd?null:+b.dataset.wd;render();break;
     case 'libm':S.libM=b.dataset.m;render();break;
     case 'edit':S.editing=true;S.formErr='';render();window.scrollTo({top:0});break;
