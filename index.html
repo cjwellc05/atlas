@@ -433,10 +433,85 @@ const RAW=[
 ['backext','Back extension','hamstrings',['glutes'],['backext'],'i','bw',0,'Hinge at the hips over the pad, then raise until your body is straight.'],
 ['abduct','Hip abduction machine','glutes',[],['abductor'],'i','stack',0.6,'Sit tall and push your knees out against the pads. Return slowly.'],
 ['seatedcalf','Seated calf raise','calves',[],['calfmachine'],'i','stack',0.8,'Pads on your lower thighs. Full stretch at the bottom, pause at the top.'],
-['standcalfm','Standing calf raise machine','calves',[],['calfmachine'],'i','stack',1.2,'Shoulders under the pads. Lower your heels fully, then rise high.']
+['standcalfm','Standing calf raise machine','calves',[],['calfmachine'],'i','stack',1.2,'Shoulders under the pads. Lower your heels fully, then rise high.'],
+// Off-Season program exercises (not used by the automatic planner)
+['abdplank','Abductor side plank','core',['glutes'],[],'i','time',0,'Side plank with the top leg lifted. Hips high, body in one straight line. Do both sides.'],
+['hkdbpress','Half-kneeling dumbbell press','shoulders',['triceps','core'],['dumbbells'],'c','db',0.22,'One knee down, glutes squeezed. Press one dumbbell straight up without leaning. Do both sides.'],
+['hkcablerow','Half-kneeling 1-arm cable row','upperback',['lats','biceps','core'],['cable'],'c','stack',0.3,'One knee down, torso tall and still. Row the handle to your ribs. Do both sides.'],
+['banddeadbug','Banded dead bug','core',[],['bands'],'i','band',0,'Band anchored overhead, arms straight. Low back pressed down as you lower the opposite leg.'],
+['suitcase','Suitcase carry','core',['upperback'],['dumbbells'],'c','db1',0.3,'Heavy dumbbell in one hand. Walk tall without leaning toward it. Switch hands each way.'],
+['dbsplit','Dumbbell split squat','quads',['glutes'],['dumbbells'],'c','db',0.2,'Staggered stance, both feet on the floor. Drop the back knee straight down. Do both sides.'],
+['ytw','Incline bench Y-T-W','upperback',['shoulders'],['dumbbells','adjbench'],'i','db',0.03,'Chest on an incline bench. Raise light weights into a Y, then a T, then a W. That’s one rep.'],
+['copenhagen','Copenhagen side plank','core',[],['bench'],'i','time',0,'Top leg on the bench, bottom leg free. Hold a straight side plank. Do both sides.'],
+['deadhang','Dead hang','lats',[],['pullup'],'i','time',0,'Hang from the bar with straight arms and active shoulders. Hold as long as you can.'],
+['ngchin','Neutral-grip chin-up','lats',['biceps'],['pullup'],'c','bw',0,'Palms facing each other. Pull until your chin clears the handles, lower all the way.'],
+['gobletlat','Goblet lateral lunge','quads',['glutes'],['dumbbells'],'c','db1',0.2,'Hold one dumbbell at your chest. Step wide, sit into that hip, keep the other leg straight.'],
+['yogapush','Yoga push-up','chest',['shoulders','triceps','core'],[],'c','bw',0,'Do a push-up, then push your hips up and back into a downward dog. Return to plank.'],
+['trxrow','TRX row','upperback',['lats','biceps'],[],'c','bw',0,'Lean back on the straps, body straight. Row your chest to your hands. Walk feet forward to make it harder.'],
+['bearcrawl','Bear crawl','core',['shoulders','quads'],[],'c','bw',0,'Hands and feet down, knees an inch off the floor. Crawl forward, then backward, back flat.']
 ];
 const LIB=RAW.map(([id,n,m,s,eq,k,load,r,cue],i)=>({id,n,m,s,eq,k,load,r,cue,i}));
 const BY=Object.fromEntries(LIB.map(x=>[x.id,x]));
+['abdplank','hkdbpress','hkcablerow','banddeadbug','suitcase','dbsplit','ytw','copenhagen','deadhang','ngchin','gobletlat','yogapush','trxrow','bearcrawl'].forEach(id=>BY[id].po=true);
+/* ---------- Off-Season program (from Curt's coach sheets) ----------
+   Each slot: [label, exercise id, sets, reps, unit (reps|sec|yd|max), rest seconds, extra].
+   extra.side: per side · extra.sch: [[last week, sets, reps], ...] by program week · extra.note / extra.eff */
+const ESC_A1={sch:[[2,3,8],[5,4,6],[99,2,6]],note:'Weeks 1–2: 3×8 · weeks 3–5: 4×6 · week 6: 2×6.'};
+const PROGRAM={name:'Off-Season',days:[
+ {name:'Off-Season Day 1',slots:[
+  ['A1','goblet',3,8,'reps',120,{...ESC_A1,note:ESC_A1.note+' Easier: bodyweight squat. Harder: front squat, then back squat.'}],
+  ['A2','abdplank',2,30,'sec',0,{side:1}],
+  ['B1','hkdbpress',3,5,'reps',60,{side:1}],
+  ['B2','stepup',3,8,'reps',60],
+  ['C1','dbrdl',3,8,'reps',60],
+  ['C2','hkcablerow',3,8,'reps',60,{side:1}],
+  ['D1','banddeadbug',3,10,'reps',60,{side:1}],
+  ['D2','suitcase',3,20,'yd',0,{side:1}]]},
+ {name:'Off-Season Day 2',slots:[
+  ['A1','inclinedb',3,8,'reps',120,{...ESC_A1,note:ESC_A1.note+' Easier: incline push-ups. Harder: barbell incline press.'}],
+  ['A2','dbsplit',3,8,'reps',60,{side:1}],
+  ['B1','csrow',3,8,'reps',60],
+  ['B2','pallof',3,30,'sec',60,{side:1}],
+  ['C1','ytw',3,6,'reps',60,{note:'6 of each letter: Y, T and W.'}],
+  ['C2','copenhagen',3,30,'sec',0,{side:1}],
+  ['D1','deadhang',3,0,'max',60]]},
+ {name:'Off-Season Day 3',slots:[
+  ['A1','trapdl',3,5,'reps',120,{sch:[[2,3,5],[99,4,4]],eff:'Leave 2 reps in the tank (2 RIR)',note:'Weeks 1–2: 3×5 · weeks 3 on: 4×4. Easier: kettlebell deadlift.'}],
+  ['B1','ngchin',3,6,'reps',120],
+  ['B2','gobletlat',3,8,'reps',120,{side:1}],
+  ['C1','yogapush',3,10,'reps',60],
+  ['C2','backext',3,10,'reps',60],
+  ['D1','trxrow',3,8,'reps',60,{side:1}],
+  ['D2','bearcrawl',3,10,'yd',60,{note:'10 yards forward, then 10 yards backward.'}]]}
+]};
+// Program week counts from the first Off-Season workout you logged.
+function progWeek(p){const s=(p.sessions||[]).find(x=>x.prog!=null);if(!s)return 1;return Math.min(6,Math.floor((new Date(isoDate()+'T12:00')-new Date(s.date+'T12:00'))/(7*864e5))+1);}
+const unitOf=it=>it.unit||(it.ex.load==='time'?'sec':'reps');
+const unitWord=u=>u==='sec'?'sec':u==='yd'?'yd':'reps';
+function tgtText(it){if(it.tgt)return it.tgt;return `${it.lo}–${it.hi} ${unitWord(unitOf(it))}`;}
+// Builds a program workout's items from its saved exercise list; swapped exercises keep their slot's prescription.
+function progItems(p,w,low){
+  const P=PROGRAM.days[w.prog];if(!P)return[];const wk=progWeek(p),items=[],seen=new Set();
+  const used=new Set(w.list.map(id=>(w.pslot||{})[id]).filter(x=>x!=null));
+  let L=0;
+  w.list.forEach(id=>{
+    const ex=BY[id];if(!ex||seen.has(id))return;seen.add(id);
+    const si=(w.pslot||{})[id],sl=si!=null?P.slots[si]:null;
+    if(!sl){const it=makeItem(p,ex,'d'+w.id+'u'+id);it.label=String.fromCharCode(68+(++L));it.added=true;items.push(it);return;}
+    const [lab,,sets0,reps0,unit,rest,x={}]=sl;let sets=sets0,reps=reps0;
+    if(x.sch){const r=x.sch.find(z=>wk<=z[0]);if(r){sets=r[1];reps=r[2];}}
+    if(low)sets=Math.max(2,sets-1);
+    const u=unit==='max'?'sec':unit,side=x.side?'/side':'';
+    const tgt=unit==='max'?'max hold':`${reps}${u==='sec'?' sec':u==='yd'?' yd':' reps'}${side}`;
+    const rx={sets,lo:reps,hi:reps,rest:rest||60};
+    const pr=(p.prog||{})[ex.id]||{},w0=loaded(ex)?(pr.w??startWeight(ex,p,{...rx,hi:Math.max(reps,8)})):null;
+    items.push({key:'d'+w.id+'u'+id,m:ex.m,ex,rx,lo:reps,hi:reps,w:w0,fresh:loaded(ex)&&pr.w==null,label:lab,unit:u,tgt,pnote:x.note||'',peff:x.eff||(unit==='max'?'Hang on as long as you can':u==='sec'?'Hold steady with good form':u==='yd'?'Steady pace, stay tall':''),prog:true,max:unit==='max'});
+  });
+  // Partners: the two exercises that share a letter (A1/A2) alternate.
+  const by={};items.forEach(it=>{if(it.prog){const k=it.label.charAt(0);(by[k]=by[k]||[]).push(it);}});
+  Object.values(by).forEach(g=>{if(g.length===2){g[0].partner=g[1];g[1].partner=g[0];const r=Math.max(g[0].rx.rest,g[1].rx.rest);g[0].rx.rest=g[1].rx.rest=r;}});
+  return items;
+}
 const HARD_BW=new Set(['pullup','chinup','dipchest','dips']);
 
 const TPL={
@@ -516,7 +591,7 @@ function startWeight(ex,p,rx){const one=est1RM(ex,p);if(one==null)return null;re
 function incFor(ex){const lo=LOWER.has(ex.m);if(ex.load==='db'||ex.load==='db1')return 5;return lo?10:5;}
 
 function pickEx(sl,eq,used,uses,p){
-  const c=LIB.filter(x=>x.m===sl.m&&avail(x,eq)&&!used.has(x.id));
+  const c=LIB.filter(x=>x.m===sl.m&&!x.po&&avail(x,eq)&&!used.has(x.id));
   if(!c.length)return null;
   const sd=sl.seed,rnd=x=>(hashDay(sd+'|'+(sl.key||sl.m)+'|'+x.id)%100003)/100003;
   if(sl.pref){const pr=c.filter(e=>sl.pref.includes(e.id));if(pr.length)return sd?pr.sort((a,b)=>rnd(a)-rnd(b))[0]:pr.sort((a,b)=>sl.pref.indexOf(a.id)-sl.pref.indexOf(b.id))[0];}
@@ -691,7 +766,15 @@ function buildPlan(p){
   (p.cw||[]).forEach(w=>{
     if(!w.date)w.date=isoDate(dateFor(w.wd));
     if(w.date!==isoDate(dateFor(w.wd)))return;
-    if(byWd[w.wd]||custom.some(c=>c.wd===w.wd))return;
+    if(custom.some(c=>c.wd===w.wd))return;
+    if(byWd[w.wd]&&(w.prog==null||byWd[w.wd].done))return;
+    const replaced=byWd[w.wd]?byWd[w.wd].name:null;
+    if(w.prog!=null){
+      const items=progItems(p,w,false),dt=isoDate(dateFor(w.wd));
+      const d={wd:w.wd,di:w.id,tk:null,name:w.name,items,custom:true,prog:w.prog,replaced,legs:items.some(it=>it.ex.k==='c'&&LOWER.has(it.ex.m)),comp:new Set(items.filter(it=>it.ex.k==='c'&&it.ex.m!=='power').map(it=>it.ex.m)),mins:estMin(items)};
+      if(w.wd<t&&sess.some(x=>x.date===dt&&x.di===w.id))d.done=true;
+      custom.push(d);byWd[w.wd]=d;return;
+    }
     const seen=new Set(),its=[];
     w.list.forEach(id=>{const ex=BY[id];if(!ex||!avail(ex,eq)||seen.has(id))return;seen.add(id);const it=makeItem(p,ex,'d'+w.id+'u'+id);if(focus2.has(ex.m))it.rx.sets+=1;if(meso.deload)it.rx.sets=Math.max(1,Math.round(it.rx.sets*0.5));its.push(it);});
     const items=pairUp(its,p),dt=isoDate(dateFor(w.wd));
@@ -1149,13 +1232,13 @@ function guideView(p,day){
   if(idx<0){
     return h+`<section class="guide" style="border-color:var(--good)"><div class="eyebrow" style="color:var(--good)">All sets done</div><h2 class="gname">That’s the whole workout</h2><p class="cue">Every set finished. Save it so Atlas can set your weights for next time, and give yourself credit for showing up.</p>${skippedHTML(day,d)}<button class="btn wide big" data-act="finish">Finish workout</button><button class="link" data-act="unguide">Review sets first</button></section>`;
   }
-  const [it,si]=steps[idx],s=d[it.key].sets[si],ex=it.ex,time=ex.load==='time';
+  const [it,si]=steps[idx],s=d[it.key].sets[si],ex=it.ex,un=unitOf(it),time=un==='sec',big=time||un==='yd';
   const w=s.w===''?it.w:+s.w,r=s.r===''?it.hi:+s.r;
   const nx=steps.slice(idx+1).find(x=>!isDone(x));
-  h+=`<section class="guide">${S.cheer?`<p class="gcheer">${esc(S.cheer)}</p>`:''}<div class="eyebrow">${it.label} · Set ${si+1} of ${it.rx.sets} · target ${it.lo}–${it.hi}${time?' sec':' reps'}</div><p class="effort" style="margin:-8px 0 0">${rirText(p,it,mesoInfo(p))}${si===it.rx.sets-1&&it.ex.k!=='c'&&!mesoInfo(p).deload?' (this is the last set)':''}</p><h2 class="gname">${esc(ex.n)}</h2>${lastLine(p,ex)?`<p class="last">${esc(lastLine(p,ex))}</p>`:''}${exGraphic(ex)}<p class="cue">${esc(ex.cue)} <button class="link" data-act="info" data-ex="${ex.id}">Full how-to</button></p>`;
+  h+=`<section class="guide">${S.cheer?`<p class="gcheer">${esc(S.cheer)}</p>`:''}<div class="eyebrow">${it.label} · Set ${si+1} of ${it.rx.sets} · target ${it.prog?esc(it.tgt):`${it.lo}–${it.hi}${time?' sec':' reps'}`}</div><p class="effort" style="margin:-8px 0 0">${it.peff?esc(it.peff):rirText(p,it,mesoInfo(p))}${si===it.rx.sets-1&&it.ex.k!=='c'&&!mesoInfo(p).deload?' (this is the last set)':''}</p><h2 class="gname">${esc(ex.n)}</h2>${lastLine(p,ex)?`<p class="last">${esc(lastLine(p,ex))}</p>`:''}${exGraphic(ex)}<p class="cue">${esc(ex.cue)} <button class="link" data-act="info" data-ex="${ex.id}">Full how-to</button></p>`;
   if(it.w!=null)h+=`<div class="stepper"><button data-act="gstep" data-f="w" data-d="-5" aria-label="Less weight">−</button><div class="val"><b>${w}</b><small>lb${ex.load==='db'?' each':''}</small></div><button data-act="gstep" data-f="w" data-d="5" aria-label="More weight">+</button></div>`;
   else h+=`<p class="cue"><b>${wtag(ex)}</b></p>`;
-  h+=`<div class="stepper"><button data-act="gstep" data-f="r" data-d="${time?-5:-1}" aria-label="Fewer">−</button><div class="val"><b>${r}</b><small>${time?'seconds':'reps done'}</small></div><button data-act="gstep" data-f="r" data-d="${time?5:1}" aria-label="More">+</button></div>
+  h+=`<div class="stepper"><button data-act="gstep" data-f="r" data-d="${big?-5:-1}" aria-label="Fewer">−</button><div class="val"><b>${r}</b><small>${time?'seconds':un==='yd'?'yards':'reps done'}${it.tgt&&it.tgt.includes('/side')?' per side':''}</small></div><button data-act="gstep" data-f="r" data-d="${big?5:1}" aria-label="More">+</button></div>
   <button class="btn wide big" data-act="gdone">Set done · start rest</button>
   <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><button class="link" data-act="gskip">Skip this exercise</button><button class="link" data-act="swap" data-key="${it.key}" data-m="${it.m}" data-cur="${ex.id}">Swap</button><button class="link" data-act="unguide">Full list</button></div>
   ${nx?`<div class="upnext">Up next: <b>${esc(nx[0].ex.n)}</b>, set ${nx[1]+1}${nx[0]===it?'':(it.partner===nx[0]?' (paired: go straight there)':'')}</div>`:''}${skippedHTML(day,d)}</section>`;
@@ -1167,19 +1250,19 @@ const canRm=(it,ctx)=>ctx&&!ctx.catchup&&ctx.di!=null&&!it.auto&&!it.extra&&(ctx
 function customHTML(p,day){
   if(!day||day.catchup||day.di==null)return '';
   const gone=removedOf(p,day.di);
-  return `${gone.length?`<div class="card"><div class="eyebrow">Removed from ${esc(day.name)}</div>${gone.map(g=>`<div class="sess"><b>${esc(g.ex.n)}</b><button class="link" data-act="putback" data-key="${g.key}">Put back</button></div>`).join('')}</div>`:''}<button class="btn sec wide" data-act="addex" data-di="${day.di}">+ Add an exercise</button>${day.custom?(S.confirmDelW===day.di?`<div class="banner bad">Delete ${esc(day.name)}? Anything you already logged stays in your history.<div style="display:flex;gap:8px;margin-top:10px"><button class="btn danger" data-act="delwyes" data-di="${day.di}">Delete</button><button class="btn sec" data-act="delwno">Keep it</button></div></div>`:`<button class="link" style="align-self:center;color:var(--bad)" data-act="delw" data-di="${day.di}">Delete this workout</button>`):''}`;
+  return `${gone.length?`<div class="card"><div class="eyebrow">Removed from ${esc(day.name)}</div>${gone.map(g=>`<div class="sess"><b>${esc(g.ex.n)}</b><button class="link" data-act="putback" data-key="${g.key}">Put back</button></div>`).join('')}</div>`:''}<button class="btn sec wide" data-act="addex" data-di="${day.di}">+ Add an exercise</button>${day.custom?(S.confirmDelW===day.di?`<div class="banner bad">Delete ${esc(day.name)}? Anything you already logged stays in your history.<div style="display:flex;gap:8px;margin-top:10px"><button class="btn danger" data-act="delwyes" data-di="${day.di}">Delete</button><button class="btn sec" data-act="delwno">Keep it</button></div></div>`:`<button class="link" style="align-self:center;color:var(--bad)" data-act="delw" data-di="${day.di}">${day.replaced?'Go back to '+esc(day.replaced):'Delete this workout'}</button>`):''}`;
 }
 // Button that starts a new workout of the person's own on a free day.
 const newWorkoutBtn=(wd,wide)=>`<button class="${wide?'btn sec wide':'link'}" ${wide?'':'style="text-align:left"'} data-act="neww" data-wd="${wd}">+ Add a workout${wide?' on '+WDL[wd]:''}</button>`;
 function exCard(it,d,p,meso,ctx){
-  const ex=it.ex,ds=d[it.key],ld=it.w!=null,time=ex.load==='time';
-  const rows=ds.sets.map((s,i)=>`<div class="setrow ${s.done?'done':''}"><span class="sn">${i+1}</span>${ld?`<label class="fld"><input id="w-${it.key}-${i}" type="number" inputmode="decimal" step="2.5" min="0" value="${esc(s.w)}" data-set="${it.key}|${i}|w" aria-label="Set ${i+1} weight"><span>lb</span></label>`:`<span class="fld bwtag">${wtag(ex)}</span>`}<label class="fld"><input id="r-${it.key}-${i}" type="number" inputmode="numeric" min="0" value="${esc(s.r)}" placeholder="${it.hi}" data-set="${it.key}|${i}|r" aria-label="Set ${i+1} ${time?'seconds':'reps'}"><span>${time?'sec':'reps'}</span></label><button class="chk" data-act="done" data-k="${it.key}" data-i="${i}" aria-pressed="${!!s.done}" aria-label="Set ${i+1} done">${CHECK}</button></div>`).join('');
+  const ex=it.ex,ds=d[it.key],ld=it.w!=null,un=unitOf(it),time=un==='sec';
+  const rows=ds.sets.map((s,i)=>`<div class="setrow ${s.done?'done':''}"><span class="sn">${i+1}</span>${ld?`<label class="fld"><input id="w-${it.key}-${i}" type="number" inputmode="decimal" step="2.5" min="0" value="${esc(s.w)}" data-set="${it.key}|${i}|w" aria-label="Set ${i+1} weight"><span>lb</span></label>`:`<span class="fld bwtag">${wtag(ex)}</span>`}<label class="fld"><input id="r-${it.key}-${i}" type="number" inputmode="numeric" min="0" value="${esc(s.r)}" placeholder="${it.max?'max':it.hi}" data-set="${it.key}|${i}|r" aria-label="Set ${i+1} ${time?'seconds':un==='yd'?'yards':'reps'}"><span>${unitWord(un)}</span></label><button class="chk" data-act="done" data-k="${it.key}" data-i="${i}" aria-pressed="${!!s.done}" aria-label="Set ${i+1} done">${CHECK}</button></div>`).join('');
   let hint='';
   if(ld&&it.fresh)hint='Starting estimate. If the last rep of set 1 feels easy, add weight; if form breaks down, drop it.';
   else if(!ld&&HARD_BW.has(ex.id))hint='Can’t reach the low end yet? Use a band for help or do slow 4-second lowering reps.';
   if(ex.m==='power')hint='Every rep at full speed. Stop the set if you slow down.';
   return `<article class="ex ${it.partner?'paired':''}"><div class="exhead"><span class="lab">${it.label}</span><div class="exname"><h3>${esc(ex.n)}</h3><div class="mus">${MUSCLES[ex.m]}${ex.s.length?' · '+ex.s.map(m=>MUSCLES[m]).join(', '):''}</div></div><div class="exbtns"><button class="ghost" data-act="info" data-ex="${ex.id}">How to</button>${it.extra?`<button class="ghost" data-act="rmx" data-m="${it.m}">Remove from today</button>`:`<button class="ghost" data-act="swap" data-key="${it.key}" data-m="${it.m}" data-cur="${ex.id}">Swap exercise</button>${canRm(it,ctx)?`<button class="ghost" data-act="rmex" data-key="${it.key}" data-ex="${ex.id}" data-di="${ctx.di}">Remove</button>`:''}`}</div></div>${it.added?`<p class="hint" style="margin-top:-4px">You added this to ${esc(ctx.name)}.</p>`:''}${it.extra||it.auto?`<p class="hint" style="margin-top:-4px">${it.auto?'Added automatically':'Added'} to catch up ${MUSCLES[ex.m].toLowerCase()} this week.</p>`:''}
-  <div class="rx"><div class="target">${ld?`<b>${it.w}</b><small>lb${ex.load==='db'?' each':''}</small>`:`<b class="sm">${wtag(ex)}</b>`}</div><div class="rxline">${it.rx.sets} × ${it.lo}–${it.hi}${time?' sec':' reps'}<br><span>Rest ${fmtRest(it.rx.rest)}${it.partner?` · alternate with ${it.partner.label}`:''}</span>${p?`<br><span class="effort">${rirText(p,it,meso)}</span>`:''}</div></div>
+  <div class="rx"><div class="target">${ld?`<b>${it.w}</b><small>lb${ex.load==='db'?' each':''}</small>`:`<b class="sm">${wtag(ex)}</b>`}</div><div class="rxline">${it.rx.sets} × ${it.prog?esc(it.tgt):`${it.lo}–${it.hi}${time?' sec':' reps'}`}<br><span>Rest ${fmtRest(it.rx.rest)}${it.partner?` · alternate with ${it.partner.label}`:''}</span>${p?`<br><span class="effort">${it.peff?esc(it.peff):rirText(p,it,meso)}</span>`:''}</div></div>${it.pnote?`<p class="hint" style="margin:0">${esc(it.pnote)}</p>`:''}
   ${p&&lastLine(p,ex)?`<p class="last">${esc(lastLine(p,ex))}</p>`:''}${ds.sets.some(s=>s.skip&&!s.done)?`<p class="hint">Skipped in guided mode. <button class="link" data-act="unskip" data-k="${it.key}">Un-skip</button></p>`:''}${hint?`<p class="hint">${hint}</p>`:''}<div class="sets">${rows}</div></article>`;
 }
 function summaryCard(){
@@ -1232,7 +1315,7 @@ function otherDayView(p,plan){
     const pj=proj(plan,k,wd),d=pj.d||null,c=cardioFor(plan,k,wd),cs=!c&&plan.cardioAll[wd]&&plan.cskips.has(iso);
     if(pj.skip)h+=skippedNote(pj.skip,iso);
     h+=`<section class="dayhead"><div class="eyebrow">${WDL[wd]} · ${fmtDay(dt)}</div><h1>${d?esc(d.name):(c?'Cardio day':'Rest day')}</h1>${d?`<p class="meta">${d.items.length} exercises · about ${d.mins} min · ${listJoin([...new Set(d.items.map(i=>MUSCLES[i.ex.m]))])}</p>`:''}</section>`;
-    if(d)h+=`<section class="card"><div class="eyebrow">Planned</div><div class="mini">${d.items.map(it=>`<div><span class="l">${it.label}</span><span>${esc(it.ex.n)}<br><span class="w">${it.rx.sets}×${it.lo}–${it.hi}${it.w!=null?' · '+it.w+' lb':''}</span></span><span></span><span></span></div>`).join('')}</div><p class="note" style="margin-top:8px">If you keep the rotation going, this is what’s next on that day. Weights and sets update as you log workouts.</p></section>`;
+    if(d)h+=`<section class="card"><div class="eyebrow">Planned</div><div class="mini">${d.items.map(it=>`<div><span class="l">${it.label}</span><span>${esc(it.ex.n)}<br><span class="w">${it.rx.sets}×${it.prog?esc(it.tgt):it.lo+'–'+it.hi}${it.w!=null?' · '+it.w+' lb':''}</span></span><span></span><span></span></div>`).join('')}</div><p class="note" style="margin-top:8px">If you keep the rotation going, this is what’s next on that day. Weights and sets update as you log workouts.</p></section>`;
     if(c)h+=cardioCard(c,p,false)+cskipBtn(iso);
     if(cs)h+=cskippedNote(plan.cardioAll[wd],iso);
     if(!d&&!c&&!pj.skip)h+=`<section class="card"><p style="margin:0">Full rest day.</p></section>`;
@@ -1306,7 +1389,7 @@ function todayView(p,plan){
     if(S.flash)h+=`<p class="formerr">${esc(S.flash)}</p>`;
     h+=`<button class="btn wide" data-act="finish">Finish workout</button><p class="note" style="text-align:center">Atlas sets next session’s weights from what you log.</p>`;
     h+=restartHTML(d);
-    if(!day.custom&&!day.catchup&&!day.done&&!started&&sel>=t&&!(sel===t&&plan.doneToday))h+=skipBtn(isoDate(dateFor(sel)));
+    if(!day.custom&&!day.catchup&&!day.done&&!started&&sel>=t&&!(sel===t&&plan.doneToday))h+=`<button class="link" style="align-self:flex-start" data-act="neww" data-wd="${sel}" data-only="${esc(day.name)}">Do an ${PROGRAM.name} workout instead</button>`+skipBtn(isoDate(dateFor(sel)));
   }
   return h;
 }
@@ -1321,7 +1404,7 @@ function weekView(p,plan){
     h+=`<div class="wrow ${wd===t?'istoday':''}"><div class="wday"><b>${WD[wd]}</b><span>${fmtDay(dateFor(wd))}</span></div><div class="wbody"><div class="chips">${L?`<span class="pill lift">${L.done?'✓ Done':'Lift'}</span>${L.missed?'<span class="pill rest">Missed</span>':''}`:''}${C?`<span class="pill cardio">${C.title} · ${C.min} min</span>`:''}${!L&&!C?'<span class="pill rest">Rest</span>':''}</div>`;
     if(L){
       h+=`<div><div class="wname">${esc(L.name)} <span class="wsub">· ${L.custom?'extra workout · ':''}${L.mins} min</span></div><div class="wsub">${listJoin([...new Set(L.items.map(i=>MUSCLES[i.ex.m]))])}</div></div><button class="link" style="text-align:left" data-act="openday" data-wd="${wd}" aria-expanded="${open}">${open?'Hide exercises':'Show exercises'}</button>`;
-      if(open)h+=`<div class="mini">${L.items.map(it=>`<div><span class="l">${it.label}</span><span>${esc(it.ex.n)}<br><span class="w">${it.rx.sets}×${it.lo}–${it.hi}${it.w!=null?' · '+it.w+' lb':''}</span></span><button class="ghost" data-act="swap" data-key="${it.key}" data-m="${it.m}" data-cur="${it.ex.id}" aria-label="Swap ${esc(it.ex.n)}">Swap</button>${canRm(it,L)?`<button class="ghost" data-act="rmex" data-key="${it.key}" data-ex="${it.ex.id}" data-di="${L.di}" aria-label="Remove ${esc(it.ex.n)}" style="padding:5px 8px">✕</button>`:'<span></span>'}</div>`).join('')}</div>${customHTML(p,L)}`;
+      if(open)h+=`<div class="mini">${L.items.map(it=>`<div><span class="l">${it.label}</span><span>${esc(it.ex.n)}<br><span class="w">${it.rx.sets}×${it.prog?esc(it.tgt):it.lo+'–'+it.hi}${it.w!=null?' · '+it.w+' lb':''}</span></span><button class="ghost" data-act="swap" data-key="${it.key}" data-m="${it.m}" data-cur="${it.ex.id}" aria-label="Swap ${esc(it.ex.n)}">Swap</button>${canRm(it,L)?`<button class="ghost" data-act="rmex" data-key="${it.key}" data-ex="${it.ex.id}" data-di="${L.di}" aria-label="Remove ${esc(it.ex.n)}" style="padding:5px 8px">✕</button>`:'<span></span>'}</div>`).join('')}</div>${customHTML(p,L)}`;
     }
     if(C)h+=`<div class="wsub">${esc(CMN[C.mode]||C.mode)}: ${C.detail}${C.after?' '+C.after:''}</div>`;
     if(C&&wd>=t&&!(wd===t&&p.cdone===isoDate()))h+=`<button class="link" style="text-align:left;color:var(--muted)" data-act="cskip" data-date="${isoDate(dateFor(wd))}">Skip cardio this day</button>`;
@@ -1582,7 +1665,7 @@ function profileView(p){
   h+=`<section class="card"><dl class="kv"><dt>Age</dt><dd>${p.age}</dd><dt>Height</dt><dd>${htText(p.ht)}</dd><dt>Weight</dt><dd>${p.wt} lb</dd><dt>Experience</dt><dd>${EXP[p.exp][0]}</dd><dt>Goal</dt><dd>${GOALS[p.goal][0]}</dd><dt>Focus</dt><dd>${(p.focus||[]).length?p.focus.map(m=>MUSCLES[m]).join(', '):'Balanced'}</dd><dt>Lifting days</dt><dd>${[...p.days].sort().map(d=>WD[d]).join(', ')}</dd><dt>Session</dt><dd>${p.minutes} min</dd><dt>Cardio</dt><dd>${CGOALS[p.cGoal][0]}${p.cGoal!=='none'?' · '+(p.cModes||[]).map(m=>CMN[m]).join(', '):''}</dd><dt>Home equipment</dt><dd>${(p.equip||[]).length} items</dd><dt>Gym equipment</dt><dd>${(p.gymEquip||GYM_DEFAULT).length} items</dd><dt>Training at</dt><dd>${atGym(p)?'Gym':'Home'}</dd></dl><button class="btn sec wide" style="margin-top:14px" data-act="edit">Edit profile and goals</button></section>`;
   h+=`<section class="card"><h2>Household</h2><p class="note" style="margin:4px 0 6px">Each person gets their own plan, weights and history.</p><div class="people">${S.profiles.map(q=>`<div class="person"><span class="av" style="width:30px;height:30px;border-radius:50%;background:${q.id===p.id?'var(--accent)':'var(--surface-2)'};color:${q.id===p.id?'var(--accent-ink)':'var(--ink)'};display:grid;place-items:center;font-weight:700">${initials(q.name)}</span><span><b>${esc(q.name)}</b><br><small class="note">${GOALS[q.goal][0]} · ${q.days.length} days</small></span>${q.id===p.id?'<span class="tag in">Active</span>':`<button class="ghost" data-act="switch" data-id="${q.id}">Switch</button>`}</div>`).join('')}</div><button class="btn sec wide" style="margin-top:10px" data-act="add">Add a person</button></section>`;
   h+=backupCard();
-  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 11.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
+  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 12.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
   if(S.confirmDel===p.id)h+=`<div class="banner bad">Delete ${esc(p.name)} and all of their logged workouts? This can’t be undone.<div style="display:flex;gap:8px;margin-top:10px"><button class="btn danger" data-act="delyes">Delete</button><button class="btn sec" data-act="delno">Cancel</button></div></div>`;
   else h+=`<button class="link" style="color:var(--bad);align-self:flex-start" data-act="del">Delete ${esc(p.name)}</button>`;
   return h;
@@ -1626,9 +1709,13 @@ function setupView(p){
   if(first){
     const ex={name:'Example',age:35,sex:'m',ht:70,wt:180,exp:'some',goal:'muscle',focus:[],days:[0,1,3,4],minutes:60,equip:HOME_DEFAULT,cGoal:'health',cModes:['walk','bike'],cMin:30,over:{},prog:{}};
     const pl=buildPlan(ex),d1=pl.days[0];
-    h+=`<section class="card"><div class="eyebrow">Example plan</div><p class="note" style="margin:4px 0 10px">For a 35-year-old, 5′10″, 180 lb, building muscle with a home gym. Yours will match your own details.</p>${strip(pl,-1,false)}<div class="mini" style="margin-top:10px">${d1.items.map(it=>`<div><span class="l">${it.label}</span><span>${esc(it.ex.n)}</span><span class="w">${it.rx.sets}×${it.lo}–${it.hi}</span><span class="w">${it.w!=null?it.w+' lb':wtag(it.ex)}</span></div>`).join('')}</div></section>`;
+    h+=`<section class="card"><div class="eyebrow">Example plan</div><p class="note" style="margin:4px 0 10px">For a 35-year-old, 5′10″, 180 lb, building muscle with a home gym. Yours will match your own details.</p>${strip(pl,-1,false)}<div class="mini" style="margin-top:10px">${d1.items.map(it=>`<div><span class="l">${it.label}</span><span>${esc(it.ex.n)}</span><span class="w">${it.rx.sets}×${it.prog?esc(it.tgt):it.lo+'–'+it.hi}</span><span class="w">${it.w!=null?it.w+' lb':wtag(it.ex)}</span></div>`).join('')}</div></section>`;
   }
   return h;
+}
+function progChoices(p,sh){
+  const wk=progWeek(p);
+  return `<div class="eyebrow" style="margin-top:4px">${PROGRAM.name} program · week ${wk}</div>${PROGRAM.days.map((d,i)=>`<button class="opt" data-act="newwgo" data-src="os${i}"><span><b>${esc(d.name)}</b><small>${d.slots.length} exercises · ${esc(d.slots.map(s=>BY[s[1]].n).slice(0,3).join(', '))}…</small></span><span class="tag">Pick</span></button>`).join('')}${sh.only?`<p class="note">Replaces ${esc(sh.only)} for ${WDL[sh.wd]} only. Your regular rotation picks up from there.</p>`:''}`;
 }
 function sheetView(p,plan){
   const sh=S.sheet;if(!sh)return '';
@@ -1639,7 +1726,7 @@ function sheetView(p,plan){
     return `<div class="scrim" data-act="close"><div class="sheet" role="dialog" aria-modal="true" aria-label="Swap exercise" data-stop="1"><div class="sheethead"><div><div class="eyebrow">${MUSCLES[sh.m]}</div><h2>Choose an exercise</h2></div><button class="ghost" data-act="close">Close</button></div><p class="note">Everything that trains your ${MUSCLES[sh.m].toLowerCase()}. Your choice sticks for this slot each week.</p>${list.map(x=>{const ok=avail(x,eq),cur=x.id===sh.cur,dup=!cur&&usedToday.has(x.id);return `<button class="opt" data-act="pick" data-ex="${x.id}" ${cur?'aria-current="true"':''} ${!ok||dup?'disabled':''}><span><b>${esc(x.n)}</b><small>${x.k==='c'?'Compound':'Isolation'}${x.s.length?' · also '+x.s.map(m=>MUSCLES[m].toLowerCase()).join(', '):''}${!ok?' · needs '+x.eq.filter(e=>!eq.has(e)).map(e=>EQN[e].toLowerCase()).join(', '):''}${dup?' · already in this workout':''}</small></span><span class="tag ${cur?'in':''}">${cur?'Current':''}</span></button>`;}).join('')}</div></div>`;
   }
   if(sh.type==='neww'){
-    return `<div class="scrim" data-act="close"><div class="sheet" role="dialog" aria-modal="true" aria-label="Add a workout" data-stop="1"><div class="sheethead"><div><div class="eyebrow">${WDL[sh.wd]}</div><h2>Add a workout</h2></div><button class="ghost" data-act="close">Close</button></div><label class="f"><span>Name</span><input id="f-wname" maxlength="40" placeholder="For example: Arms" value="${esc(sh.name||'')}"></label><p class="note">A one-time workout for ${WDL[sh.wd]}, ${fmtDay(dateFor(sh.wd))}. Weights are set like your other lifts, and your regular rotation doesn’t change.</p><div class="eyebrow" style="margin-top:4px">Start from</div><button class="opt" data-act="newwgo" data-src="blank"><span><b>Blank</b><small>Pick each exercise yourself</small></span><span class="tag">Start</span></button>${plan.days.map(d=>`<button class="opt" data-act="newwgo" data-src="${d.di}"><span><b>Copy of ${esc(d.name)}</b><small>${d.items.length} exercises · ${esc(listJoin([...new Set(d.items.map(i=>MUSCLES[i.ex.m]))]))}</small></span><span class="tag">Copy</span></button>`).join('')}</div></div>`;
+    return `<div class="scrim" data-act="close"><div class="sheet" role="dialog" aria-modal="true" aria-label="Add a workout" data-stop="1"><div class="sheethead"><div><div class="eyebrow">${WDL[sh.wd]}</div><h2>${sh.only?'Pick a workout':'Add a workout'}</h2></div><button class="ghost" data-act="close">Close</button></div>${progChoices(p,sh)}${sh.only?'':`<label class="f"><span>Name</span><input id="f-wname" maxlength="40" placeholder="For example: Arms" value="${esc(sh.name||'')}"></label><p class="note">A one-time workout for ${WDL[sh.wd]}, ${fmtDay(dateFor(sh.wd))}. Weights are set like your other lifts, and your regular rotation doesn’t change.</p><div class="eyebrow" style="margin-top:4px">Start from</div><button class="opt" data-act="newwgo" data-src="blank"><span><b>Blank</b><small>Pick each exercise yourself</small></span><span class="tag">Start</span></button>${plan.days.map(d=>`<button class="opt" data-act="newwgo" data-src="${d.di}"><span><b>Copy of ${esc(d.name)}</b><small>${d.items.length} exercises · ${esc(listJoin([...new Set(d.items.map(i=>MUSCLES[i.ex.m]))]))}</small></span><span class="tag">Copy</span></button>`).join('')}`}</div></div>`;
   }
   if(sh.type==='add'){
     const d=dayByDi(plan,sh.di);if(!d)return '';
@@ -1715,7 +1802,8 @@ function finishWorkout(){
     entries.push({id:it.ex.id,sets,lo:it.lo,hi:it.hi});
     const pr={...(p.prog[it.ex.id]||{})};let note;
     const allTop=sets.length>=it.rx.sets&&sets.every(s=>s.r>=it.hi),anyLow=sets.some(s=>s.r<it.lo);
-    if(it.w!=null&&mesoInfo(p).deload){pr.w=pr.w??it.w;note=`Deload week: weights stay at ${pr.w} lb. Back to building next week.`;}
+    if(it.prog&&it.w==null){note=it.max?`Best hold: ${Math.max(...sets.map(s=>s.r))} sec`:'Logged. Same target next time';}
+    else if(it.w!=null&&mesoInfo(p).deload&&!it.prog){pr.w=pr.w??it.w;note=`Deload week: weights stay at ${pr.w} lb. Back to building next week.`;}
     else if(it.w!=null){
       const base=sets[0].w||it.w;pr.w=base;
       if(allTop){pr.w=base+incFor(it.ex);pr.stall=0;note=`Up to ${pr.w} lb next time`;}
@@ -1730,7 +1818,7 @@ function finishWorkout(){
   });
   if(!entries.length){S.flash='Check off at least one set before finishing.';render();return;}
   S.flash='';
-  p.sessions=p.sessions||[];p.sessions.push({date:isoDate(),name:day.name,di:day.catchup?null:day.di,tk:day.catchup?null:day.tk,entries});
+  p.sessions=p.sessions||[];p.sessions.push({date:isoDate(),name:day.name,di:day.catchup?null:day.di,tk:day.catchup?null:day.tk,entries,...(day.prog!=null?{prog:day.prog}:{})});
   snap.ref=p.sessions[p.sessions.length-1];S.undo=snap;S.confirmRestart=false;
   if(p.sessions.length>200)p.sessions=p.sessions.slice(-200);
   clearDraft(p,k);
@@ -1875,8 +1963,13 @@ document.addEventListener('click',e=>{
     case 'addex':S.sheet={type:'add',di:parseDi(b.dataset.di),m:'chest'};keepScroll(()=>{});break;
     case 'addexm':S.sheet.m=b.dataset.m;{const sc=document.querySelector('.sheet'),y=sc?sc.scrollTop:0;keepScroll(()=>{});const s2=document.querySelector('.sheet');if(s2)s2.scrollTop=y;}break;
     case 'addexpick':{const di=S.sheet.di;setAdds(p,di,[...getAdds(p,di),b.dataset.ex]);S.sheet=null;Store.save(p);keepScroll(()=>{});break;}
-    case 'neww':S.sheet={type:'neww',wd:+b.dataset.wd};keepScroll(()=>{});break;
-    case 'newwgo':{const wd=S.sheet.wd,src=b.dataset.src,plan=buildPlan(p),from=src==='blank'?null:plan.days[+src];
+    case 'neww':S.sheet={type:'neww',wd:+b.dataset.wd,only:b.dataset.only||''};keepScroll(()=>{});break;
+    case 'newwgo':{const wd=S.sheet.wd,src=b.dataset.src,plan=buildPlan(p);
+      if(/^os\d$/.test(src)){const pi=+src.slice(2),P=PROGRAM.days[pi];let id='w'+Date.now();while(cwOf(p,id))id='w'+(Date.now()+Math.floor(Math.random()*1000));
+        const date=isoDate(dateFor(wd)),wk0=isoDate(dateFor(0)),pslot={};P.slots.forEach((s,i)=>pslot[s[1]]=i);
+        p.cw=(p.cw||[]).filter(w=>w.date&&w.date>=wk0&&w.date!==date);p.cw.push({id,name:P.name,wd,date,prog:pi,pslot,list:P.slots.map(s=>s[1])});
+        S.sheet=null;if(S.tab==='today')S.viewDay=wd;else S.openDay=wd;Store.save(p);keepScroll(()=>{});break;}
+      const from=src==='blank'?null:plan.days[+src];
       const el=document.getElementById('f-wname'),typed=el?el.value.trim().slice(0,40):'';
       const name=typed||(from?from.name+' (extra)':'My workout');
       let id='w'+Date.now();while(cwOf(p,id))id='w'+(Date.now()+Math.floor(Math.random()*1000));
@@ -1893,7 +1986,7 @@ document.addEventListener('click',e=>{
     case 'info':S.sheet={type:'info',ex:b.dataset.ex};{const y=window.scrollY;render();window.scrollTo({top:y});}break;
     case 'close':S.sheet=null;{const y=window.scrollY;render();window.scrollTo({top:y});}break;
     case 'pick':{const ua=S.sheet.key.match(UKEY);
-      if(ua){const di=parseDi(ua[1]);setAdds(p,di,getAdds(p,di).map(id=>id===ua[2]?b.dataset.ex:id));}
+      if(ua){const di=parseDi(ua[1]);setAdds(p,di,getAdds(p,di).map(id=>id===ua[2]?b.dataset.ex:id));const cw=isCW(di)&&cwOf(p,di);if(cw&&cw.pslot&&cw.pslot[ua[2]]!=null){cw.pslot[b.dataset.ex]=cw.pslot[ua[2]];delete cw.pslot[ua[2]];}}
       else{p.over=p.over||{};p.over[S.sheet.key]=b.dataset.ex;}S.sheet=null;Store.save(p);const y=window.scrollY;render();window.scrollTo({top:y});break;}
     case 'openday':S.openDay=S.openDay===+b.dataset.wd?null:+b.dataset.wd;render();break;
     case 'libm':S.libM=b.dataset.m;render();break;
