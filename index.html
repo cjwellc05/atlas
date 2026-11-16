@@ -1086,6 +1086,16 @@ const draftKey=(p,day)=>p.id+'|'+isoDate()+'|'+day.wd;
 function getDraft(p,day){
   const k=draftKey(p,day);
   if(!S.drafts[k])S.drafts[k]=lsGet('atlas.d.'+k,{})||{};
+  // A draft belongs to one workout. If a different workout now sits on this day, park the old
+  // draft (so switching back restores it) and start clean.
+  const wk=String(day.di)+'|'+day.name;
+  if(S.drafts[k]._wk!==wk){
+    const old=S.drafts[k];
+    if(old._wk&&Object.keys(old).some(x=>x.charAt(0)!=='_'))lsSet('atlas.dp.'+k+'|'+old._wk,old);
+    const mine=!old._wk&&day.items.some(it=>old[it.key]&&old[it.key].ex===it.ex.id);
+    S.drafts[k]=mine?old:(lsGet('atlas.dp.'+k+'|'+wk,null)||{});
+    S.drafts[k]._wk=wk;
+  }
   const d=S.drafts[k];
   day.items.forEach(it=>{
     if(!d[it.key]||d[it.key].ex!==it.ex.id)d[it.key]={ex:it.ex.id,sets:Array.from({length:it.rx.sets},()=>({w:it.w??'',r:'',done:false}))};
@@ -1096,7 +1106,8 @@ function getDraft(p,day){
 // Saves an in-progress workout here and to the account, so it can be picked up on another device.
 function saveDraft(p,day,d){const k=draftKey(p,day);d._ts=Date.now();S.drafts[k]=d;lsSet('atlas.d.'+k,d);Store.saveDraft(p.id,k,d);}
 function clearDraft(p,k){delete S.drafts[k];lsDel('atlas.d.'+k);Store.saveDraft(p.id,null,null);}
-const draftStarted=d=>!!(d&&(d._warm||Object.values(d).some(v=>v&&v.sets&&v.sets.some(s=>s.done||s.skip))));
+// "Started" means at least one set is logged or skipped. A warm-up alone doesn't count.
+const draftStarted=d=>!!(d&&Object.values(d).some(v=>v&&v.sets&&v.sets.some(s=>s.done||s.skip)));
 // Pulls in a newer in-progress workout saved from another device. Returns true if anything changed.
 function mergeDrafts(){
   const today=isoDate();let changed=false;
@@ -1665,7 +1676,7 @@ function profileView(p){
   h+=`<section class="card"><dl class="kv"><dt>Age</dt><dd>${p.age}</dd><dt>Height</dt><dd>${htText(p.ht)}</dd><dt>Weight</dt><dd>${p.wt} lb</dd><dt>Experience</dt><dd>${EXP[p.exp][0]}</dd><dt>Goal</dt><dd>${GOALS[p.goal][0]}</dd><dt>Focus</dt><dd>${(p.focus||[]).length?p.focus.map(m=>MUSCLES[m]).join(', '):'Balanced'}</dd><dt>Lifting days</dt><dd>${[...p.days].sort().map(d=>WD[d]).join(', ')}</dd><dt>Session</dt><dd>${p.minutes} min</dd><dt>Cardio</dt><dd>${CGOALS[p.cGoal][0]}${p.cGoal!=='none'?' · '+(p.cModes||[]).map(m=>CMN[m]).join(', '):''}</dd><dt>Home equipment</dt><dd>${(p.equip||[]).length} items</dd><dt>Gym equipment</dt><dd>${(p.gymEquip||GYM_DEFAULT).length} items</dd><dt>Training at</dt><dd>${atGym(p)?'Gym':'Home'}</dd></dl><button class="btn sec wide" style="margin-top:14px" data-act="edit">Edit profile and goals</button></section>`;
   h+=`<section class="card"><h2>Household</h2><p class="note" style="margin:4px 0 6px">Each person gets their own plan, weights and history.</p><div class="people">${S.profiles.map(q=>`<div class="person"><span class="av" style="width:30px;height:30px;border-radius:50%;background:${q.id===p.id?'var(--accent)':'var(--surface-2)'};color:${q.id===p.id?'var(--accent-ink)':'var(--ink)'};display:grid;place-items:center;font-weight:700">${initials(q.name)}</span><span><b>${esc(q.name)}</b><br><small class="note">${GOALS[q.goal][0]} · ${q.days.length} days</small></span>${q.id===p.id?'<span class="tag in">Active</span>':`<button class="ghost" data-act="switch" data-id="${q.id}">Switch</button>`}</div>`).join('')}</div><button class="btn sec wide" style="margin-top:10px" data-act="add">Add a person</button></section>`;
   h+=backupCard();
-  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 12.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
+  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 13.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
   if(S.confirmDel===p.id)h+=`<div class="banner bad">Delete ${esc(p.name)} and all of their logged workouts? This can’t be undone.<div style="display:flex;gap:8px;margin-top:10px"><button class="btn danger" data-act="delyes">Delete</button><button class="btn sec" data-act="delno">Cancel</button></div></div>`;
   else h+=`<button class="link" style="color:var(--bad);align-self:flex-start" data-act="del">Delete ${esc(p.name)}</button>`;
   return h;
