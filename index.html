@@ -1676,7 +1676,7 @@ function profileView(p){
   h+=`<section class="card"><dl class="kv"><dt>Age</dt><dd>${p.age}</dd><dt>Height</dt><dd>${htText(p.ht)}</dd><dt>Weight</dt><dd>${p.wt} lb</dd><dt>Experience</dt><dd>${EXP[p.exp][0]}</dd><dt>Goal</dt><dd>${GOALS[p.goal][0]}</dd><dt>Focus</dt><dd>${(p.focus||[]).length?p.focus.map(m=>MUSCLES[m]).join(', '):'Balanced'}</dd><dt>Lifting days</dt><dd>${[...p.days].sort().map(d=>WD[d]).join(', ')}</dd><dt>Session</dt><dd>${p.minutes} min</dd><dt>Cardio</dt><dd>${CGOALS[p.cGoal][0]}${p.cGoal!=='none'?' · '+(p.cModes||[]).map(m=>CMN[m]).join(', '):''}</dd><dt>Home equipment</dt><dd>${(p.equip||[]).length} items</dd><dt>Gym equipment</dt><dd>${(p.gymEquip||GYM_DEFAULT).length} items</dd><dt>Training at</dt><dd>${atGym(p)?'Gym':'Home'}</dd></dl><button class="btn sec wide" style="margin-top:14px" data-act="edit">Edit profile and goals</button></section>`;
   h+=`<section class="card"><h2>Household</h2><p class="note" style="margin:4px 0 6px">Each person gets their own plan, weights and history.</p><div class="people">${S.profiles.map(q=>`<div class="person"><span class="av" style="width:30px;height:30px;border-radius:50%;background:${q.id===p.id?'var(--accent)':'var(--surface-2)'};color:${q.id===p.id?'var(--accent-ink)':'var(--ink)'};display:grid;place-items:center;font-weight:700">${initials(q.name)}</span><span><b>${esc(q.name)}</b><br><small class="note">${GOALS[q.goal][0]} · ${q.days.length} days</small></span>${q.id===p.id?'<span class="tag in">Active</span>':`<button class="ghost" data-act="switch" data-id="${q.id}">Switch</button>`}</div>`).join('')}</div><button class="btn sec wide" style="margin-top:10px" data-act="add">Add a person</button></section>`;
   h+=backupCard();
-  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 13.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
+  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 14.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
   if(S.confirmDel===p.id)h+=`<div class="banner bad">Delete ${esc(p.name)} and all of their logged workouts? This can’t be undone.<div style="display:flex;gap:8px;margin-top:10px"><button class="btn danger" data-act="delyes">Delete</button><button class="btn sec" data-act="delno">Cancel</button></div></div>`;
   else h+=`<button class="link" style="color:var(--bad);align-self:flex-start" data-act="del">Delete ${esc(p.name)}</button>`;
   return h;
@@ -1763,6 +1763,7 @@ function timerHTML(){return `<div class="timer" id="timer" hidden><div><span cla
 /* ---------- render ---------- */
 function render(){
   if(S.loading){$app.innerHTML='<div class="shell"><div class="loading">Opening Atlas…</div></div>';return;}
+  saveUi();
   const p=active();
   if(!p||S.editing||S.adding){
     const rs=!S.profiles.length?`<section class="card"><h2>Coming from Atlas in Claude?</h2><p class="note" style="margin:4px 0 10px">Restore your backup file to pick up where you left off.</p><button class="btn sec wide" data-act="bkimport">Restore from backup file</button>${S.bkMsg?`<p class="formerr" style="margin-top:8px">${esc(S.bkMsg)}</p>`:''}</section>`:'';
@@ -1783,7 +1784,15 @@ function render(){
 }
 
 /* ---------- timer ---------- */
-function startTimer(sec,label){S.timer={end:Date.now()+sec*1000,total:sec,label,buzzed:false};renderTimer();}
+function startTimer(sec,label){S.timer={end:Date.now()+sec*1000,total:sec,label,buzzed:false};saveUi();renderTimer();}
+// Android can close a backgrounded app to free memory. Saving where you were (screen, guided mode,
+// rest timer) lets Atlas reopen in the same spot with the timer still counting from its real end time.
+function saveUi(){if(S.loading)return;lsSet('atlas.ui',{date:isoDate(),t:Date.now(),tab:S.tab,viewDay:S.viewDay,guide:!!S.guide,timer:S.timer,pid:S.activeId});}
+function restoreUi(){
+  const u=lsGet('atlas.ui',null);if(!u||u.date!==isoDate()||Date.now()-u.t>4*3600e3||u.pid!==S.activeId)return;
+  if(u.tab)S.tab=u.tab;if(u.viewDay!=null)S.viewDay=u.viewDay;S.guide=!!u.guide;
+  if(u.timer&&u.timer.end>Date.now()-60e3)S.timer=u.timer;
+}
 function renderTimer(){
   const el=document.getElementById('timer');if(!el)return;
   if(!S.timer){el.hidden=true;return;}
@@ -1792,7 +1801,7 @@ function renderTimer(){
   el.querySelector('.tt').textContent=left>0?fmtClock(left):'Go';
   el.querySelector('.tl').textContent=left>0?S.timer.label:'Rest done. Next set.';
   el.querySelector('.tbar i').style.width=(100*(1-left/S.timer.total))+'%';
-  if(left===0&&!S.timer.buzzed){S.timer.buzzed=true;try{navigator.vibrate&&navigator.vibrate([200,100,200]);}catch(e){}beep();const t=S.timer;setTimeout(()=>{if(S.timer===t){S.timer=null;renderTimer();}},4000);}
+  if(left===0&&!S.timer.buzzed){S.timer.buzzed=true;saveUi();if(document.visibilityState==='visible'){try{navigator.vibrate&&navigator.vibrate([200,100,200]);}catch(e){}beep();}const t=S.timer;setTimeout(()=>{if(S.timer===t){S.timer=null;saveUi();renderTimer();}},4000);}
 }
 setInterval(renderTimer,500);
 
@@ -1992,7 +2001,7 @@ document.addEventListener('click',e=>{
     case 'delwno':S.confirmDelW=null;keepScroll(()=>{});break;
     case 'delwyes':p.cw=(p.cw||[]).filter(w=>w.id!==b.dataset.di);if(!p.cw.length)delete p.cw;S.confirmDelW=null;Store.save(p);keepScroll(()=>{});break;
     case 'dismiss':S.summary=null;S.undo=null;render();break;
-    case 'skiptimer':S.timer=null;renderTimer();break;
+    case 'skiptimer':S.timer=null;saveUi();renderTimer();break;
     case 'swap':S.sheet={type:'swap',key:b.dataset.key,m:b.dataset.m,cur:b.dataset.cur};{const y=window.scrollY;render();window.scrollTo({top:y});}break;
     case 'info':S.sheet={type:'info',ex:b.dataset.ex};{const y=window.scrollY;render();window.scrollTo({top:y});}break;
     case 'close':S.sheet=null;{const y=window.scrollY;render();window.scrollTo({top:y});}break;
@@ -2022,9 +2031,11 @@ if('serviceWorker' in navigator&&location.protocol!=='file:')window.addEventList
 (async function(){
   S.profiles=await Store.init()||[];
   mergeDrafts();
-  document.addEventListener('visibilitychange',()=>{syncWake();if(document.visibilityState==='visible'&&!S.loading)Store.refresh().then(ch=>{if(ch&&!S.editing&&!S.adding)keepScroll(()=>{});});});
+  window.addEventListener('pagehide',saveUi);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveUi();else renderTimer();syncWake();if(document.visibilityState==='visible'&&!S.loading)Store.refresh().then(ch=>{if(ch&&!S.editing&&!S.adding)keepScroll(()=>{});});});
   const saved=lsGet('atlas.active',null);
   S.activeId=S.profiles.find(p=>p.id===saved)?saved:(S.profiles[0]?S.profiles[0].id:null);
+  restoreUi();
   S.loading=false;render();
 })();
 })();
