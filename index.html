@@ -1389,6 +1389,12 @@ function todayView(p,plan){
   if(c)h+=cardioCard(c,p,sel===t)+(sel>=t&&!(sel===t&&p.cdone===isoDate())?cskipBtn(isoDate(dateFor(sel))):'');
   if(!c&&plan.cskipWd[sel])h+=cskippedNote(plan.cskipWd[sel],isoDate(dateFor(sel)));
   if(day&&!day.items.length)h+=`<section class="card"><p style="margin:0">No exercises in ${esc(day.name)} yet. Add a few to build it.</p></section>`+customHTML(p,day);
+  // A workout already saved for this date shows as done, with what was logged, instead of a fresh list.
+  const dsess=day&&day.items.length&&sel<=t?(p.sessions||[]).filter(s=>s.date===isoDate(dateFor(sel))&&(s.di===day.di||s.name===day.name)).pop():null;
+  if(dsess&&S.reopen!==isoDate(dateFor(sel))+'|'+day.di){
+    h+=`<section class="card" style="border-color:var(--good)"><div class="eyebrow" style="color:var(--good)">${CHECK} Workout done</div><h2 style="margin:4px 0 8px">${esc(dsess.name)} is in the books</h2>${dsess.entries.map(e=>{const ex=BY[e.id];return `<div class="sess"><b>${esc(ex?ex.n:e.id)}</b><span>${esc(setStr(e.id,e.sets).replace(/x/g,'×'))}</span></div>`;}).join('')}<p class="note" style="margin-top:8px">Saved to your history and progress. Atlas has set your weights for next time.</p><button class="link" style="margin-top:6px" data-act="reopen" data-k="${isoDate(dateFor(sel))}|${day.di}">Log more sets for this workout</button></section>`;
+    return h;
+  }
   if(day&&day.items.length){
     const d=getDraft(p,day),started=draftStarted(d);
     h+=`<button class="btn wide big" data-act="guide">${started?'Resume':'Start'} guided workout</button><p class="note" style="text-align:center;margin-top:-6px">One set at a time with rest timers. Or log straight into the list below.</p>`;
@@ -1676,7 +1682,7 @@ function profileView(p){
   h+=`<section class="card"><dl class="kv"><dt>Age</dt><dd>${p.age}</dd><dt>Height</dt><dd>${htText(p.ht)}</dd><dt>Weight</dt><dd>${p.wt} lb</dd><dt>Experience</dt><dd>${EXP[p.exp][0]}</dd><dt>Goal</dt><dd>${GOALS[p.goal][0]}</dd><dt>Focus</dt><dd>${(p.focus||[]).length?p.focus.map(m=>MUSCLES[m]).join(', '):'Balanced'}</dd><dt>Lifting days</dt><dd>${[...p.days].sort().map(d=>WD[d]).join(', ')}</dd><dt>Session</dt><dd>${p.minutes} min</dd><dt>Cardio</dt><dd>${CGOALS[p.cGoal][0]}${p.cGoal!=='none'?' · '+(p.cModes||[]).map(m=>CMN[m]).join(', '):''}</dd><dt>Home equipment</dt><dd>${(p.equip||[]).length} items</dd><dt>Gym equipment</dt><dd>${(p.gymEquip||GYM_DEFAULT).length} items</dd><dt>Training at</dt><dd>${atGym(p)?'Gym':'Home'}</dd></dl><button class="btn sec wide" style="margin-top:14px" data-act="edit">Edit profile and goals</button></section>`;
   h+=`<section class="card"><h2>Household</h2><p class="note" style="margin:4px 0 6px">Each person gets their own plan, weights and history.</p><div class="people">${S.profiles.map(q=>`<div class="person"><span class="av" style="width:30px;height:30px;border-radius:50%;background:${q.id===p.id?'var(--accent)':'var(--surface-2)'};color:${q.id===p.id?'var(--accent-ink)':'var(--ink)'};display:grid;place-items:center;font-weight:700">${initials(q.name)}</span><span><b>${esc(q.name)}</b><br><small class="note">${GOALS[q.goal][0]} · ${q.days.length} days</small></span>${q.id===p.id?'<span class="tag in">Active</span>':`<button class="ghost" data-act="switch" data-id="${q.id}">Switch</button>`}</div>`).join('')}</div><button class="btn sec wide" style="margin-top:10px" data-act="add">Add a person</button></section>`;
   h+=backupCard();
-  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 14.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
+  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 15.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
   if(S.confirmDel===p.id)h+=`<div class="banner bad">Delete ${esc(p.name)} and all of their logged workouts? This can’t be undone.<div style="display:flex;gap:8px;margin-top:10px"><button class="btn danger" data-act="delyes">Delete</button><button class="btn sec" data-act="delno">Cancel</button></div></div>`;
   else h+=`<button class="link" style="color:var(--bad);align-self:flex-start" data-act="del">Delete ${esc(p.name)}</button>`;
   return h;
@@ -1923,6 +1929,7 @@ document.addEventListener('click',e=>{
     case 'oday':S.viewOther=+b.dataset.wd;render();break;
     case 'guide':S.guide=true;S.wkOff=0;S.flash='';S.cheer='';S.viewDay=S.viewDay??todayIdx();render();window.scrollTo({top:0});break;
     case 'unguide':S.guide=false;render();break;
+    case 'reopen':S.reopen=b.dataset.k;keepScroll(()=>{});break;
     case 'warm':{const plan=buildPlan(p),day=currentDay(p,plan);if(!day)break;const d=getDraft(p,day);d._warm=true;S.cheer='Warmed up. First working set: own the form.';saveDraft(p,day,d);keepScroll(()=>{});break;}
     case 'gstep':{const plan=buildPlan(p),day=currentDay(p,plan);if(!day)break;const d=getDraft(p,day),steps=guideSteps(day);
       const cur=steps.find(([it,i])=>{const s=d[it.key].sets[i];return s&&!s.done&&!s.skip;});if(!cur)break;
