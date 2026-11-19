@@ -123,6 +123,8 @@ h2{font-family:var(--f-display);font-weight:700;font-size:22px;letter-spacing:.0
 .pill{display:inline-flex;align-items:center;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--surface-2);color:var(--ink);border:1px solid var(--line)}
 .pill.lift{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
 .pill.cardio{background:var(--cardio-soft);border-color:transparent;color:var(--cardio)}
+.pill.hi{background:var(--bad-soft);border-color:transparent;color:var(--bad)}
+.pill.lo{background:var(--good-soft);border-color:transparent;color:var(--good)}
 .pill.rest{color:var(--muted)}
 
 /* week rows */
@@ -448,11 +450,12 @@ const RAW=[
 ['gobletlat','Goblet lateral lunge','quads',['glutes'],['dumbbells'],'c','db1',0.2,'Hold one dumbbell at your chest. Step wide, sit into that hip, keep the other leg straight.'],
 ['yogapush','Yoga push-up','chest',['shoulders','triceps','core'],[],'c','bw',0,'Do a push-up, then push your hips up and back into a downward dog. Return to plank.'],
 ['trxrow','TRX row','upperback',['lats','biceps'],[],'c','bw',0,'Lean back on the straps, body straight. Row your chest to your hands. Walk feet forward to make it harder.'],
+['sprint','Sprints','power',['quads','hamstrings','glutes'],[],'c','bw',0,'Build up over 2–3 strides, then sprint 20–40 m at full speed. Walk back so every rep is fast.'],
 ['bearcrawl','Bear crawl','core',['shoulders','quads'],[],'c','bw',0,'Hands and feet down, knees an inch off the floor. Crawl forward, then backward, back flat.']
 ];
 const LIB=RAW.map(([id,n,m,s,eq,k,load,r,cue],i)=>({id,n,m,s,eq,k,load,r,cue,i}));
 const BY=Object.fromEntries(LIB.map(x=>[x.id,x]));
-['abdplank','hkdbpress','hkcablerow','banddeadbug','suitcase','dbsplit','ytw','copenhagen','deadhang','ngchin','gobletlat','yogapush','trxrow','bearcrawl'].forEach(id=>BY[id].po=true);
+['abdplank','hkdbpress','hkcablerow','banddeadbug','suitcase','dbsplit','ytw','copenhagen','deadhang','ngchin','gobletlat','yogapush','trxrow','bearcrawl','sprint'].forEach(id=>BY[id].po=true);
 /* ---------- Off-Season program (from Curt's coach sheets) ----------
    Each slot: [label, exercise id, sets, reps, unit (reps|sec|yd|max), rest seconds, extra].
    extra.side: per side · extra.sch: [[last week, sets, reps], ...] by program week · extra.note / extra.eff */
@@ -526,6 +529,16 @@ const TPL={
  PL:{name:'Pull',slots:[['lats','c'],['upperback','c'],['lats','c'],['shoulders','i',['reardelt','facepull']],['biceps','i'],['upperback','i'],['biceps','i'],['core','i']]},
  LG:{name:'Legs',slots:[['quads','c'],['hamstrings','c'],['glutes','c'],['quads','i'],['hamstrings','i'],['calves','i'],['core','i'],['calves','i']]}
 };
+// High/Low athlete week (off-season): Mon upper (low), Tue speed + heavy lower (high),
+// Wed easy aerobic (low), Thu jumps + lower strength (high), Fri upper (low), Sat off, Sun speed + hard conditioning (high).
+Object.assign(TPL,{
+ HLU1:{name:'Upper A · Low',slots:[['chest','c'],['upperback','c'],['shoulders','c'],['lats','c'],['triceps','i'],['biceps','i'],['shoulders','i',['latraise','cablelat']],['core','i']]},
+ HLH1:{name:'Speed + Lower · High',slots:[['power','c',['sprint']],['power','c',['broadjump']],['quads','c',['squat','frontsquat','legpress']],['hamstrings','c',['rdl','dbrdl']],['calves','i'],['core','i']]},
+ HLH2:{name:'Jumps + Strength · High',slots:[['power','c',['broadjump']],['power','c',['mbslam','mbchest']],['hamstrings','c',['trapdl','deadlift','rdl']],['quads','c',['bss','frontsquat','goblet']],['glutes','c',['hipthrust','dbthrust']],['core','i']]},
+ HLU2:{name:'Upper B · Low',slots:[['shoulders','c'],['lats','c'],['chest','c'],['upperback','c'],['biceps','i'],['triceps','i'],['upperback','i',['facepull','pullapart']],['core','i']]}
+});
+const HL_DAYS=[0,1,3,4],HL_SPLIT=['HLU1','HLH1','HLH2','HLU2'];
+const isHL=p=>p.split==='hl';
 const SPLITS={1:['FA'],2:['FA','FB'],3:['FA','FB','FC'],4:['UA','LA','UB','LB'],5:['UA','LA','PU','PL','LG'],6:['PU','PL','LG','PU','PL','LG']};
 const SPREAD={1:[0],2:[0,3],3:[0,2,4],4:[0,1,3,4],5:[0,1,2,4,5],6:[0,1,2,3,4,5]};
 const ANT={chest:['upperback','lats'],upperback:['chest','shoulders'],lats:['chest','shoulders'],shoulders:['lats','upperback','core'],biceps:['triceps'],triceps:['biceps'],quads:['hamstrings','glutes'],hamstrings:['quads'],glutes:['quads','core'],calves:['core','shoulders'],core:['calves','glutes','shoulders']};
@@ -719,13 +732,13 @@ function allocateVolume(p,days,eq,uses,meso){
 const proteinRange=p=>[Math.round(p.wt*0.7/5)*5,Math.round(p.wt*1.0/5)*5];
 
 function buildPlan(p){
-  const eq=eqSet(p),days=[...p.days].sort((a,b)=>a-b).slice(0,6),split=SPLITS[days.length]||[];
+  const hl=isHL(p),eq=eqSet(p),days=hl?HL_DAYS.slice():[...p.days].sort((a,b)=>a-b).slice(0,6),split=hl?HL_SPLIT:(SPLITS[days.length]||[]);
   const uses={},focus=new Set(p.focus||[]),n=sessionCount(p.minutes);
   const out=days.map((wd,di)=>{
     const tk=split[di],T=TPL[tk];
     const seed=(p.seeds||{})[di];
     const slots=T.slots.map((s,si)=>({m:s[0],k:s[1],pref:s[2],key:'d'+di+'s'+si,seed}));
-    if(p.goal==='athletic')slots.unshift({m:'power',k:'c',key:'d'+di+'p',seed});
+    if(p.goal==='athletic'&&!hl)slots.unshift({m:'power',k:'c',key:'d'+di+'p',seed});
     const rm=p.rm||{},adds=[...new Set((p.adds||{})[di]||[])].filter(id=>BY[id]&&avail(BY[id],eq));
     const used=new Set(adds);let items=[],filled=0;
     for(const sl of slots){
@@ -747,7 +760,7 @@ function buildPlan(p){
     return{wd,di,tk,name:T.name,items,used};
   });
   const meso=mesoInfo(p);
-  if(p.goal==='muscle')allocateVolume(p,out,eq,uses,meso);
+  if(p.goal==='muscle'&&!hl)allocateVolume(p,out,eq,uses,meso);
   else if(meso.deload)out.forEach(d=>d.items.forEach(it=>it.rx.sets=Math.max(1,Math.round(it.rx.sets*0.5))));
   out.forEach(d=>{const items=pairUp(d.items,p);delete d.used;Object.assign(d,{items,legs:items.some(it=>it.ex.k==='c'&&LOWER.has(it.ex.m)),comp:new Set(items.filter(it=>it.ex.k==='c'&&it.ex.m!=='power').map(it=>it.ex.m)),mins:estMin(items)});});
   const baseByWd={};out.forEach(d=>baseByWd[d.wd]=d);
@@ -761,7 +774,7 @@ function buildPlan(p){
     if(s){const di=(s.di!=null&&out[s.di]&&out[s.di].tk===s.tk)?s.di:out.findIndex(o=>o.name===s.name);byWd[d.wd]={...(di>=0?out[di]:d),wd:d.wd,done:true};}
     else if(skips.has(dt))skipWd[d.wd]=d.name;
     else byWd[d.wd]={...d,missed:!(p.start&&dt<p.start)};});
-  out.map(d=>d.wd).filter(wd=>wd>=t).forEach(wd=>{const d=out[r%n2];if(skips.has(isoDate(dateFor(wd)))&&!(wd===t&&doneToday)){skipWd[wd]=d.name;return;}byWd[wd]={...d,wd};r=(wd===t&&doneToday)?next:r+1;});
+  out.map(d=>d.wd).filter(wd=>wd>=t).forEach(wd=>{const d=hl?out.find(o=>o.wd===wd):out[r%n2];if(skips.has(isoDate(dateFor(wd)))&&!(wd===t&&doneToday)){skipWd[wd]=d.name;return;}byWd[wd]={...d,wd};r=(wd===t&&doneToday)?next:r+1;});
   const custom=[],focus2=new Set(p.focus||[]);
   (p.cw||[]).forEach(w=>{
     if(!w.date)w.date=isoDate(dateFor(w.wd));
@@ -783,16 +796,24 @@ function buildPlan(p){
     custom.push(d);byWd[w.wd]=d;
   });
   let rotNote='';
-  if(last&&byWd[t]&&!doneToday){
+  if(last&&byWd[t]&&!doneToday&&!hl){
     const lastDay=fmtDay(new Date(last.s.date+'T12:00'));
     rotNote=baseByWd[t]&&baseByWd[t].tk!==byWd[t].tk?`Your schedule had ${baseByWd[t].name} today, but you last finished ${last.s.name} (${lastDay}), so ${byWd[t].name} is next. Nothing gets skipped.`:`Next in your rotation after ${last.s.name} on ${lastDay}.`;
   }
   const warnings=[];
   out.forEach(d=>{const nx=baseByWd[(d.wd+1)%7];if(nx&&nx!==d){const sh=[...d.comp].filter(m=>nx.comp.has(m)&&m!=='core');if(sh.length)warnings.push(`${WD[d.wd]} and ${WD[nx.wd]} both train ${listJoin(sh.map(m=>MUSCLES[m].toLowerCase()))} hard. Spread the days out so each muscle gets 48 hours.`);}});
   // Cardio the person skipped on a date is taken off that day only; other cardio days stay put.
-  const cardio=cardioPlan(p,Object.values(byWd)),cardioAll={...cardio},cskips=new Set(p.cskips||[]),cskipWd={};
+  const cardio=hl?hlCardio(p):cardioPlan(p,Object.values(byWd)),cardioAll={...cardio},cskips=new Set(p.cskips||[]),cskipWd={};
   for(let wd=0;wd<7;wd++)if(cardio[wd]&&cskips.has(isoDate(dateFor(wd)))){cskipWd[wd]=cardio[wd];delete cardio[wd];}
   return{days:out,byWd,custom,rEnd:r,skips,skipWd,cardio,cardioAll,cskips,cskipWd,warnings,rotNote,doneToday,meso};
+}
+function hlCardio(p){
+  const modes=(p.cModes&&p.cModes.length)?p.cModes:['walk','bike'];
+  const hard=['bike','rower','run','rope','elliptical','swim','walk'].find(m=>modes.includes(m))||modes[0];
+  const sun=mkCardio('intervals',hard,p,false);
+  sun.detail='Speed first: 4–6 sprints of 20–30 m with a full walk back. Then '+sun.detail.charAt(0).toLowerCase()+sun.detail.slice(1);
+  sun.title='Speed + hard conditioning';
+  return{2:mkCardio('easy',modes[0],p,false),6:sun};
 }
 function cardioPlan(p,days){
   const out={};if(!p.cGoal||p.cGoal==='none')return out;
@@ -1177,6 +1198,27 @@ function strip(plan,sel,interactive){
     return `<${tag} class="dcell ${wd===t&&interactive?'today':''}" ${interactive?`data-act="day" data-wd="${wd}" aria-pressed="${wd===sel}"`:''} aria-label="${WDL[wd]}${L?', '+L.name:''}${C?', cardio':''}"><span>${d.charAt(0)}</span><span class="num">${interactive?dateFor(wd).getDate():d.slice(0,2)}</span><span class="marks">${marks}</span></${tag}>`;
   }).join('')}</div>`;
 }
+/* ---------- High/Low ----------
+   High days take 48+ hours to recover from: heavy lower-body lifting, sprints, jumps, hard intervals.
+   Low days recover in under 24 hours: upper body, isolation work, easy cardio, mobility. Dose matters. */
+const HEAVY_LOWER=new Set(['squat','frontsquat','deadlift','trapdl','rdl','hipthrust','legpress','hacksquat','smithsquat']);
+function stressOf(L,C){
+  if(!L&&!C)return null;
+  const why=[];
+  if(L){
+    const its=L.items||[];
+    if(its.some(i=>i.ex.m==='power'||i.ex.id==='broadjump'))why.push('jumps and power work');
+    const heavy=its.filter(i=>HEAVY_LOWER.has(i.ex.id));
+    const lowerSets=its.filter(i=>i.ex.k==='c'&&LOWER.has(i.ex.m)).reduce((a,i)=>a+(i.rx?i.rx.sets:0),0);
+    if(heavy.length)why.push('heavy '+listJoin(heavy.map(i=>i.ex.n.toLowerCase())));
+    else if(lowerSets>=8)why.push(lowerSets+' hard sets of lower-body lifting');
+  }
+  if(C&&C.kind==='intervals')why.push('hard intervals');
+  return why.length?{hi:true,why}:{hi:false,why:[]};
+}
+function stressWeek(plan){const s=[];for(let wd=0;wd<7;wd++)s[wd]=stressOf(plan.byWd[wd],plan.cardio[wd]);return s;}
+const stressPill=s=>s?(s.hi?'<span class="pill hi">High day</span>':'<span class="pill lo">Low day</span>'):'';
+function stressWarnings(s){const out=[];for(let wd=0;wd<7;wd++){const nx=(wd+1)%7;if(s[wd]&&s[wd].hi&&s[nx]&&s[nx].hi)out.push(`${WDL[wd]} and ${WDL[nx]} are both high days. Back-to-back hard days leave you tired for the second one. Move one, or make one of them easy.`);}return out;}
 const legend=()=>`<div class="legend"><span><i class="mk lift"></i>Lifting</span><span><i class="mk cardio"></i>Cardio</span><span><i class="mk rest"></i>Rest</span></div>`;
 function cardioCard(c,p,isToday){
   const done=isToday&&p&&p.cdone===isoDate();
@@ -1372,7 +1414,8 @@ function todayView(p,plan){
     return h;
   }
   if(!S.guide&&!pre)h+=muscleAlerts(p,plan,day,sel);
-  h+=`<section class="dayhead"><div class="eyebrow">${sel===t?'Today':WDL[sel]} · ${fmtDay(dateFor(sel))}</div><h1>${day?esc(day.name):(c?'Cardio day':'Rest day')}</h1>${day?`<p class="meta">${day.items.length} exercises · about ${day.mins} min · ${listJoin([...new Set(day.items.map(i=>MUSCLES[i.ex.m]))])}</p>`:''}</section>`;
+  const st=stressOf(day,c);
+  h+=`<section class="dayhead"><div class="eyebrow">${sel===t?'Today':WDL[sel]} · ${fmtDay(dateFor(sel))}${st?` · <span style="color:var(--${st.hi?'bad':'good'})">${st.hi?'High':'Low'} day</span>`:''}</div><h1>${day?esc(day.name):(c?'Cardio day':'Rest day')}</h1>${day?`<p class="meta">${day.items.length} exercises · about ${day.mins} min · ${listJoin([...new Set(day.items.map(i=>MUSCLES[i.ex.m]))])}</p>`:''}</section>`;
   if(day&&sel===t&&!pre){const why=[plan.rotNote,...(day.reasons||[])].filter(Boolean);if(why.length)h+=`<section class="card why"><div class="eyebrow">Why this workout</div><ul>${why.map(w=>`<li>${esc(w)}</li>`).join('')}</ul><p class="note">Based on the workouts you’ve logged this week.</p></section>`;}
   if(p.age<18&&day)h+=`<div class="banner">Under 18: Atlas keeps reps at 6 or more and starts loads light. Learn each lift with good form first, ideally with a coach checking it.</div>`;
   if(day&&day.low)h+=`<div class="banner">Low-energy day: one set less on each lift, same weights.</div>`;
@@ -1414,11 +1457,13 @@ function weekView(p,plan){
   const t=todayIdx(),cardioDays=Object.keys(plan.cardio).map(Number);
   const rest=7-new Set([...plan.days.map(d=>d.wd),...cardioDays]).size;
   let h=`<section class="dayhead"><div class="eyebrow">Week of ${fmtDay(dateFor(0))}</div><h1>Training week</h1><p class="meta">${plan.days.length} lifting · ${cardioDays.length} cardio · ${rest} full rest</p></section>${legend()}`;
-  {const m=plan.meso;h+=`<section class="card meso"><div class="eyebrow">Training cycle ${m.cycle} · Week ${m.week} of 5</div><h2>${m.phase} week</h2><div class="mesobar">${MESO.map((x,i)=>`<span class="${i===m.week-1?'on':''} ${x.ph==='Deload'?'dl':''}">${x.ph==='Deload'?'Deload':'Wk '+(i+1)}</span>`).join('')}</div><p class="note" style="color:var(--ink)">${m.note}</p>${p.goal==='muscle'?`<p class="note">Each muscle is set to about ${muscleTarget(p,'chest',m)} hard sets this week (calves and core ${muscleTarget(p,'calves',m)}), spread over at least two sessions.</p>${(()=>{if(m.deload)return '';const v=weeklySets(plan),short=Object.keys(v).filter(k=>v[k]<muscleTarget(p,k,m)-2);return short.length?`<div class="banner warn">Session time is limiting volume for ${listJoin(short.map(k=>MUSCLES[k].toLowerCase()))}. For maximum growth, add a training day or use ${Math.min(90,(+p.minutes||60)+15)}-minute sessions (Profile → Edit).</div>`:'';})()}`:''}</section>`;}
+  {const m=plan.meso;h+=`<section class="card meso"><div class="eyebrow">Training cycle ${m.cycle} · Week ${m.week} of 5</div><h2>${m.phase} week</h2><div class="mesobar">${MESO.map((x,i)=>`<span class="${i===m.week-1?'on':''} ${x.ph==='Deload'?'dl':''}">${x.ph==='Deload'?'Deload':'Wk '+(i+1)}</span>`).join('')}</div><p class="note" style="color:var(--ink)">${m.note}</p>${p.goal==='muscle'?`<p class="note">Each muscle is set to about ${muscleTarget(p,'chest',m)} hard sets this week (calves and core ${muscleTarget(p,'calves',m)}), spread over at least two sessions.</p>${(()=>{if(m.deload||isHL(p))return '';const v=weeklySets(plan),short=Object.keys(v).filter(k=>v[k]<muscleTarget(p,k,m)-2);return short.length?`<div class="banner warn">Session time is limiting volume for ${listJoin(short.map(k=>MUSCLES[k].toLowerCase()))}. For maximum growth, add a training day or use ${Math.min(90,(+p.minutes||60)+15)}-minute sessions (Profile → Edit).</div>`:'';})()}`:''}</section>`;}
   plan.warnings.forEach(w=>h+=`<div class="banner warn">${esc(w)} <button class="link" data-act="tab" data-tab="profile">Change days</button></div>`);
+  const sw=stressWeek(plan);
+  stressWarnings(sw).forEach(w=>h+=`<div class="banner warn">${esc(w)}</div>`);
   for(let wd=0;wd<7;wd++){
     const L=plan.byWd[wd],C=plan.cardio[wd],open=S.openDay===wd;
-    h+=`<div class="wrow ${wd===t?'istoday':''}"><div class="wday"><b>${WD[wd]}</b><span>${fmtDay(dateFor(wd))}</span></div><div class="wbody"><div class="chips">${L?`<span class="pill lift">${L.done?'✓ Done':'Lift'}</span>${L.missed?'<span class="pill rest">Missed</span>':''}`:''}${C?`<span class="pill cardio">${C.title} · ${C.min} min</span>`:''}${!L&&!C?'<span class="pill rest">Rest</span>':''}</div>`;
+    h+=`<div class="wrow ${wd===t?'istoday':''}"><div class="wday"><b>${WD[wd]}</b><span>${fmtDay(dateFor(wd))}</span></div><div class="wbody"><div class="chips">${stressPill(sw[wd])}${L?`<span class="pill lift">${L.done?'✓ Done':'Lift'}</span>${L.missed?'<span class="pill rest">Missed</span>':''}`:''}${C?`<span class="pill cardio">${C.title} · ${C.min} min</span>`:''}${!L&&!C?'<span class="pill rest">Rest</span>':''}</div>`;
     if(L){
       h+=`<div><div class="wname">${esc(L.name)} <span class="wsub">· ${L.custom?'extra workout · ':''}${L.mins} min</span></div><div class="wsub">${listJoin([...new Set(L.items.map(i=>MUSCLES[i.ex.m]))])}</div></div><button class="link" style="text-align:left" data-act="openday" data-wd="${wd}" aria-expanded="${open}">${open?'Hide exercises':'Show exercises'}</button>`;
       if(open)h+=`<div class="mini">${L.items.map(it=>`<div><span class="l">${it.label}</span><span>${esc(it.ex.n)}<br><span class="w">${it.rx.sets}×${it.prog?esc(it.tgt):it.lo+'–'+it.hi}${it.w!=null?' · '+it.w+' lb':''}</span></span><button class="ghost" data-act="swap" data-key="${it.key}" data-m="${it.m}" data-cur="${it.ex.id}" aria-label="Swap ${esc(it.ex.n)}">Swap</button>${canRm(it,L)?`<button class="ghost" data-act="rmex" data-key="${it.key}" data-ex="${it.ex.id}" data-di="${L.di}" aria-label="Remove ${esc(it.ex.n)}" style="padding:5px 8px">✕</button>`:'<span></span>'}</div>`).join('')}</div>${customHTML(p,L)}`;
@@ -1431,7 +1476,7 @@ function weekView(p,plan){
     if(!L)h+=newWorkoutBtn(wd,false);
     h+=`</div></div>`;
   }
-  h+=`<section class="card"><h2 style="margin-bottom:8px">How Atlas builds your week</h2><ul class="rules"><li>Each muscle gets at least 48 hours before it’s trained hard again, and most muscles are hit twice a week.</li><li>Big multi-joint lifts come first while you’re fresh. Smaller lifts for opposing muscles are paired (A1/A2) so one rests while the other works.</li><li>Easy cardio goes on rest days or after lifting. Hard intervals never land on a leg day or the day before one, so they don’t eat into your squats and deadlifts.</li><li>Workouts follow your log, not the calendar. The next workout is the one after the last you finished, so a missed day shifts the rotation instead of skipping a session. If a muscle falls behind its weekly sets, the next workout adds a set or an exercise to catch it up.</li><li>Weights move up when you hit the top of the rep range on every set, hold when you’re in range, and drop 10% after two sessions short of it.</li></ul></section>`;
+  h+=`<section class="card"><h2 style="margin-bottom:8px">How Atlas builds your week</h2><ul class="rules"><li><b>High days</b> (heavy squats or deadlifts, lots of lower-body sets, jumps, hard intervals) take 48 hours or more to recover from. <b>Low days</b> (upper body, isolation work, easy cardio) take under 24. Keep high days apart, with low days between.</li><li>Each muscle gets at least 48 hours before it’s trained hard again, and most muscles are hit twice a week.</li><li>Big multi-joint lifts come first while you’re fresh. Smaller lifts for opposing muscles are paired (A1/A2) so one rests while the other works.</li><li>Easy cardio goes on rest days or after lifting. Hard intervals never land on a leg day or the day before one, so they don’t eat into your squats and deadlifts.</li><li>Workouts follow your log, not the calendar. The next workout is the one after the last you finished, so a missed day shifts the rotation instead of skipping a session. If a muscle falls behind its weekly sets, the next workout adds a set or an exercise to catch it up.</li><li>Weights move up when you hit the top of the rep range on every set, hold when you’re in range, and drop 10% after two sessions short of it.</li></ul></section>`;
   return h;
 }
 function libView(p,plan){
@@ -1681,8 +1726,9 @@ function profileView(p){
   let h=`<section class="dayhead"><div class="eyebrow">Profile</div><h1>${esc(p.name)}</h1></section>`;
   h+=`<section class="card"><dl class="kv"><dt>Age</dt><dd>${p.age}</dd><dt>Height</dt><dd>${htText(p.ht)}</dd><dt>Weight</dt><dd>${p.wt} lb</dd><dt>Experience</dt><dd>${EXP[p.exp][0]}</dd><dt>Goal</dt><dd>${GOALS[p.goal][0]}</dd><dt>Focus</dt><dd>${(p.focus||[]).length?p.focus.map(m=>MUSCLES[m]).join(', '):'Balanced'}</dd><dt>Lifting days</dt><dd>${[...p.days].sort().map(d=>WD[d]).join(', ')}</dd><dt>Session</dt><dd>${p.minutes} min</dd><dt>Cardio</dt><dd>${CGOALS[p.cGoal][0]}${p.cGoal!=='none'?' · '+(p.cModes||[]).map(m=>CMN[m]).join(', '):''}</dd><dt>Home equipment</dt><dd>${(p.equip||[]).length} items</dd><dt>Gym equipment</dt><dd>${(p.gymEquip||GYM_DEFAULT).length} items</dd><dt>Training at</dt><dd>${atGym(p)?'Gym':'Home'}</dd></dl><button class="btn sec wide" style="margin-top:14px" data-act="edit">Edit profile and goals</button></section>`;
   h+=`<section class="card"><h2>Household</h2><p class="note" style="margin:4px 0 6px">Each person gets their own plan, weights and history.</p><div class="people">${S.profiles.map(q=>`<div class="person"><span class="av" style="width:30px;height:30px;border-radius:50%;background:${q.id===p.id?'var(--accent)':'var(--surface-2)'};color:${q.id===p.id?'var(--accent-ink)':'var(--ink)'};display:grid;place-items:center;font-weight:700">${initials(q.name)}</span><span><b>${esc(q.name)}</b><br><small class="note">${GOALS[q.goal][0]} · ${q.days.length} days</small></span>${q.id===p.id?'<span class="tag in">Active</span>':`<button class="ghost" data-act="switch" data-id="${q.id}">Switch</button>`}</div>`).join('')}</div><button class="btn sec wide" style="margin-top:10px" data-act="add">Add a person</button></section>`;
+  h+=`<section class="card"><h2>Training program</h2><p class="note" style="margin:4px 0 10px">Choose how Atlas lays out your week.</p><div class="seg"><button class="opt" data-act="setsplit" data-v="std" aria-current="${!isHL(p)}" style="display:block"><b>Atlas plan</b><small style="display:block">Your lifting days, with the workouts rotating through them.</small></button><button class="opt" data-act="setsplit" data-v="hl" aria-current="${isHL(p)}" style="display:block"><b>High/Low athlete week</b><small style="display:block">Hard days and easy days alternate. Mon upper, Tue speed and heavy legs, Wed easy cardio, Thu jumps and strength, Fri upper, Sat off, Sun speed and conditioning.</small></button></div></section>`;
   h+=backupCard();
-  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 15.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
+  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 16.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
   if(S.confirmDel===p.id)h+=`<div class="banner bad">Delete ${esc(p.name)} and all of their logged workouts? This can’t be undone.<div style="display:flex;gap:8px;margin-top:10px"><button class="btn danger" data-act="delyes">Delete</button><button class="btn sec" data-act="delno">Cancel</button></div></div>`;
   else h+=`<button class="link" style="color:var(--bad);align-self:flex-start" data-act="del">Delete ${esc(p.name)}</button>`;
   return h;
@@ -1875,6 +1921,7 @@ document.addEventListener('submit',e=>{
   S.formErr='';
   if(S.editing){
     const p=active();
+    if(isHL(p))o.days=HL_DAYS.slice();
     if(p.days.length!==o.days.length){p.over={};delete p.rm;delete p.adds;}
     Object.assign(p,o);Store.save(p);S.editing=false;
   }else{
@@ -1929,6 +1976,10 @@ document.addEventListener('click',e=>{
     case 'oday':S.viewOther=+b.dataset.wd;render();break;
     case 'guide':S.guide=true;S.wkOff=0;S.flash='';S.cheer='';S.viewDay=S.viewDay??todayIdx();render();window.scrollTo({top:0});break;
     case 'unguide':S.guide=false;render();break;
+    case 'setsplit':{const v=b.dataset.v;if(v==='hl'&&!isHL(p)){p.daysStd=p.days.slice();p.split='hl';p.days=HL_DAYS.slice();}
+      else if(v==='std'&&isHL(p)){delete p.split;p.days=(p.daysStd&&p.daysStd.length)?p.daysStd:p.days;delete p.daysStd;}
+      else break;
+      p.over={};delete p.rm;delete p.adds;delete p.seeds;Store.save(p);S.viewDay=null;keepScroll(()=>{});break;}
     case 'reopen':S.reopen=b.dataset.k;keepScroll(()=>{});break;
     case 'warm':{const plan=buildPlan(p),day=currentDay(p,plan);if(!day)break;const d=getDraft(p,day);d._warm=true;S.cheer='Warmed up. First working set: own the form.';saveDraft(p,day,d);keepScroll(()=>{});break;}
     case 'gstep':{const plan=buildPlan(p),day=currentDay(p,plan);if(!day)break;const d=getDraft(p,day),steps=guideSteps(day);
