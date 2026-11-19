@@ -846,7 +846,31 @@ function buildPlan(p){
     if(s){const di=(s.di!=null&&out[s.di]&&out[s.di].tk===s.tk)?s.di:out.findIndex(o=>o.name===s.name);byWd[d.wd]={...(di>=0?out[di]:d),wd:d.wd,done:true};}
     else if(skips.has(dt))skipWd[d.wd]=d.name;
     else byWd[d.wd]={...d,missed:!(p.start&&dt<p.start)};});
-  out.map(d=>d.wd).filter(wd=>wd>=t).forEach(wd=>{const d=hl?out.find(o=>o.wd===wd):out[r%n2];if(skips.has(isoDate(dateFor(wd)))&&!(wd===t&&doneToday)){skipWd[wd]=d.name;return;}byWd[wd]={...d,wd};r=(wd===t&&doneToday)?next:r+1;});
+  // High/Low: a missed session moves forward. The rest of the week shifts back (using the rest day if
+  // needed), and a high day is never placed right after another high day.
+  let hlShift=null;
+  if(hl){
+    const wk0=isoDate(dateFor(0)),wk6=isoDate(dateFor(6));
+    const weekSess=sess.filter(x=>x.date>=wk0&&x.date<=wk6&&!isCW(x.di)),doneName=new Set(weekSess.map(x=>x.name));
+    const missed=out.filter(d=>{const dt=isoDate(dateFor(d.wd));return d.wd<t&&!doneName.has(d.name)&&!skips.has(dt)&&!(p.start&&dt<p.start);});
+    if(missed.length){
+      const todayS=weekSess.find(x=>x.date===today),todayDay=todayS?out.find(o=>o.name===todayS.name):null;
+      const queue=missed.map(d=>({lift:d}));
+      for(let wd=t;wd<7;wd++){const d=out.find(o=>o.wd===wd);if(d){if(!doneName.has(d.name))queue.push({lift:d});}else if(wd===2)queue.push({aer:true});}
+      const prevDay=byWd[t-1];let prevHigh=!!(prevDay&&prevDay.done&&prevDay.hlHigh),start=t,aerWd=null;
+      if(todayDay){byWd[t]={...todayDay,wd:t};prevHigh=!!todayDay.hlHigh;start=t+1;}
+      for(let wd=start;wd<7;wd++){
+        if(skips.has(isoDate(dateFor(wd)))){skipWd[wd]='Workout';prevHigh=false;continue;}
+        const i=queue.findIndex(q=>!(q.lift&&q.lift.hlHigh&&prevHigh));
+        if(i<0){prevHigh=false;continue;}
+        const q=queue.splice(i,1)[0];
+        if(q.aer){aerWd=wd;prevHigh=false;}else{byWd[wd]={...q.lift,wd,moved:q.lift.wd!==wd};prevHigh=!!q.lift.hlHigh;}
+      }
+      const dropped=queue.filter(q=>q.lift).map(q=>q.lift.name);
+      hlShift={aerWd:queue.some(q=>q.aer)?null:aerWd,note:`You missed ${listJoin(missed.map(d=>d.name+' ('+WD[d.wd]+')'))}, so Atlas moved the rest of the week back a day${missed.length>1?' or two':''}. Hard days still have an easy day between them.${dropped.length?` ${listJoin(dropped)} won’t fit this week; it’s back on schedule next week.`:''}`};
+    }
+  }
+  if(!hlShift)out.map(d=>d.wd).filter(wd=>wd>=t).forEach(wd=>{const d=hl?out.find(o=>o.wd===wd):out[r%n2];if(skips.has(isoDate(dateFor(wd)))&&!(wd===t&&doneToday)){skipWd[wd]=d.name;return;}byWd[wd]={...d,wd};r=(wd===t&&doneToday)?next:r+1;});
   const custom=[],focus2=new Set(p.focus||[]);
   (p.cw||[]).forEach(w=>{
     if(!w.date)w.date=isoDate(dateFor(w.wd));
@@ -875,15 +899,17 @@ function buildPlan(p){
   const warnings=[];
   out.forEach(d=>{const nx=baseByWd[(d.wd+1)%7];if(nx&&nx!==d){const sh=[...d.comp].filter(m=>nx.comp.has(m)&&m!=='core');if(sh.length)warnings.push(`${WD[d.wd]} and ${WD[nx.wd]} both train ${listJoin(sh.map(m=>MUSCLES[m].toLowerCase()))} hard. Spread the days out so each muscle gets 48 hours.`);}});
   // Cardio the person skipped on a date is taken off that day only; other cardio days stay put.
-  const cardio=hl?hlCardio(p):cardioPlan(p,Object.values(byWd)),cardioAll={...cardio},cskips=new Set(p.cskips||[]),cskipWd={};
+  if(hlShift&&byWd[t])rotNote=hlShift.note;
+  const cardio=hl?hlCardio(p,hlShift?hlShift.aerWd:2):cardioPlan(p,Object.values(byWd)),cardioAll={...cardio},cskips=new Set(p.cskips||[]),cskipWd={};
   for(let wd=0;wd<7;wd++)if(cardio[wd]&&cskips.has(isoDate(dateFor(wd)))){cskipWd[wd]=cardio[wd];delete cardio[wd];}
   return{days:out,byWd,custom,rEnd:r,skips,skipWd,cardio,cardioAll,cskips,cskipWd,warnings,rotNote,doneToday,meso};
 }
-function hlCardio(p){
+function hlCardio(p,wd){
+  if(wd==null)return{};
   const max=Math.round(208-0.7*p.age),lo=Math.round(max*.8),hi=Math.round(max*.85);
   const modes=(p.cModes&&p.cModes.length)?p.cModes:['bike'];
   const mode=['rower','bike','elliptical','run','rope','swim','walk'].find(m=>modes.includes(m))||modes[0];
-  return{2:{kind:'aerobic',mode,min:45,title:'Aerobic',detail:`6–12 rounds of 4 min at 80–85% of max heart rate (${lo}–${hi} bpm), 1 min easy between. 30–60 min total. Mix up machines: rower, bike, ski erg, air bike.`,after:''}};
+  return{[wd]:{kind:'aerobic',mode,min:45,title:'Aerobic',detail:`6–12 rounds of 4 min at 80–85% of max heart rate (${lo}–${hi} bpm), 1 min easy between. 30–60 min total. Mix up machines: rower, bike, ski erg, air bike.`,after:''}};
 }
 function hlCardioOld(p){
   const modes=(p.cModes&&p.cModes.length)?p.cModes:['walk','bike'];
@@ -1808,7 +1834,7 @@ function profileView(p){
   h+=`<section class="card"><h2>Household</h2><p class="note" style="margin:4px 0 6px">Each person gets their own plan, weights and history.</p><div class="people">${S.profiles.map(q=>`<div class="person"><span class="av" style="width:30px;height:30px;border-radius:50%;background:${q.id===p.id?'var(--accent)':'var(--surface-2)'};color:${q.id===p.id?'var(--accent-ink)':'var(--ink)'};display:grid;place-items:center;font-weight:700">${initials(q.name)}</span><span><b>${esc(q.name)}</b><br><small class="note">${GOALS[q.goal][0]} · ${q.days.length} days</small></span>${q.id===p.id?'<span class="tag in">Active</span>':`<button class="ghost" data-act="switch" data-id="${q.id}">Switch</button>`}</div>`).join('')}</div><button class="btn sec wide" style="margin-top:10px" data-act="add">Add a person</button></section>`;
   h+=`<section class="card"><h2>Training program</h2><p class="note" style="margin:4px 0 10px">Choose how Atlas lays out your week.</p><div class="seg"><button class="opt" data-act="setsplit" data-v="std" aria-current="${!isHL(p)}" style="display:block"><b>Atlas plan</b><small style="display:block">Your lifting days, with the workouts rotating through them.</small></button><button class="opt" data-act="setsplit" data-v="hl" aria-current="${isHL(p)}" style="display:block"><b>High/Low athlete week</b><small style="display:block">3 hard days and 3 easy days, with the exact sessions from the video: Mon Upper Armour, Tue Speed + Lowers, Wed Aerobic, Thu Power + Lowers, Fri Upper Armour, Sat rest, Sun Speed + Fitness.</small></button></div></section>`;
   h+=backupCard();
-  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 18.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
+  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 19.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
   if(S.confirmDel===p.id)h+=`<div class="banner bad">Delete ${esc(p.name)} and all of their logged workouts? This can’t be undone.<div style="display:flex;gap:8px;margin-top:10px"><button class="btn danger" data-act="delyes">Delete</button><button class="btn sec" data-act="delno">Cancel</button></div></div>`;
   else h+=`<button class="link" style="color:var(--bad);align-self:flex-start" data-act="del">Delete ${esc(p.name)}</button>`;
   return h;
