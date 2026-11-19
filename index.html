@@ -532,10 +532,10 @@ const TPL={
 // High/Low athlete week (off-season): Mon upper (low), Tue speed + heavy lower (high),
 // Wed easy aerobic (low), Thu jumps + lower strength (high), Fri upper (low), Sat off, Sun speed + hard conditioning (high).
 Object.assign(TPL,{
- HLU1:{name:'Upper A · Low',slots:[['chest','c'],['upperback','c'],['shoulders','c'],['lats','c'],['triceps','i'],['biceps','i'],['shoulders','i',['latraise','cablelat']],['core','i']]},
- HLH1:{name:'Speed + Lower · High',slots:[['power','c',['sprint']],['power','c',['broadjump']],['quads','c',['squat','frontsquat','legpress']],['hamstrings','c',['rdl','dbrdl']],['calves','i'],['core','i']]},
- HLH2:{name:'Jumps + Strength · High',slots:[['power','c',['broadjump']],['power','c',['mbslam','mbchest']],['hamstrings','c',['trapdl','deadlift','rdl']],['quads','c',['bss','frontsquat','goblet']],['glutes','c',['hipthrust','dbthrust']],['core','i']]},
- HLU2:{name:'Upper B · Low',slots:[['shoulders','c'],['lats','c'],['chest','c'],['upperback','c'],['biceps','i'],['triceps','i'],['upperback','i',['facepull','pullapart']],['core','i']]}
+ HLU1:{name:'Upper Armour A',slots:[['chest','c'],['upperback','c'],['shoulders','c'],['lats','c'],['triceps','i'],['biceps','i'],['shoulders','i',['latraise','cablelat']],['core','i']]},
+ HLH1:{name:'Speed + Lowers',slots:[['power','c',['sprint']],['power','c',['broadjump']],['quads','c',['squat','frontsquat','legpress']],['hamstrings','c',['rdl','dbrdl']],['calves','i'],['core','i']]},
+ HLH2:{name:'Power + Lowers',slots:[['power','c',['broadjump']],['power','c',['mbslam','mbchest']],['hamstrings','c',['trapdl','deadlift','rdl']],['quads','c',['bss','frontsquat','goblet']],['glutes','c',['hipthrust','dbthrust']],['core','i']]},
+ HLU2:{name:'Upper Armour B',slots:[['shoulders','c'],['lats','c'],['chest','c'],['upperback','c'],['biceps','i'],['triceps','i'],['upperback','i',['facepull','pullapart']],['core','i']]}
 });
 const HL_DAYS=[0,1,3,4],HL_SPLIT=['HLU1','HLH1','HLH2','HLU2'];
 const isHL=p=>p.split==='hl';
@@ -812,8 +812,9 @@ function hlCardio(p){
   const hard=['bike','rower','run','rope','elliptical','swim','walk'].find(m=>modes.includes(m))||modes[0];
   const sun=mkCardio('intervals',hard,p,false);
   sun.detail='Speed first: 4–6 sprints of 20–30 m with a full walk back. Then '+sun.detail.charAt(0).toLowerCase()+sun.detail.slice(1);
-  sun.title='Speed + hard conditioning';
-  return{2:mkCardio('easy',modes[0],p,false),6:sun};
+  sun.title='Speed + Fitness';
+  const wed=mkCardio('easy',modes[0],p,false);wed.title='Aerobic';
+  return{2:wed,6:sun};
 }
 function cardioPlan(p,days){
   const out={};if(!p.cGoal||p.cGoal==='none')return out;
@@ -1726,9 +1727,9 @@ function profileView(p){
   let h=`<section class="dayhead"><div class="eyebrow">Profile</div><h1>${esc(p.name)}</h1></section>`;
   h+=`<section class="card"><dl class="kv"><dt>Age</dt><dd>${p.age}</dd><dt>Height</dt><dd>${htText(p.ht)}</dd><dt>Weight</dt><dd>${p.wt} lb</dd><dt>Experience</dt><dd>${EXP[p.exp][0]}</dd><dt>Goal</dt><dd>${GOALS[p.goal][0]}</dd><dt>Focus</dt><dd>${(p.focus||[]).length?p.focus.map(m=>MUSCLES[m]).join(', '):'Balanced'}</dd><dt>Lifting days</dt><dd>${[...p.days].sort().map(d=>WD[d]).join(', ')}</dd><dt>Session</dt><dd>${p.minutes} min</dd><dt>Cardio</dt><dd>${CGOALS[p.cGoal][0]}${p.cGoal!=='none'?' · '+(p.cModes||[]).map(m=>CMN[m]).join(', '):''}</dd><dt>Home equipment</dt><dd>${(p.equip||[]).length} items</dd><dt>Gym equipment</dt><dd>${(p.gymEquip||GYM_DEFAULT).length} items</dd><dt>Training at</dt><dd>${atGym(p)?'Gym':'Home'}</dd></dl><button class="btn sec wide" style="margin-top:14px" data-act="edit">Edit profile and goals</button></section>`;
   h+=`<section class="card"><h2>Household</h2><p class="note" style="margin:4px 0 6px">Each person gets their own plan, weights and history.</p><div class="people">${S.profiles.map(q=>`<div class="person"><span class="av" style="width:30px;height:30px;border-radius:50%;background:${q.id===p.id?'var(--accent)':'var(--surface-2)'};color:${q.id===p.id?'var(--accent-ink)':'var(--ink)'};display:grid;place-items:center;font-weight:700">${initials(q.name)}</span><span><b>${esc(q.name)}</b><br><small class="note">${GOALS[q.goal][0]} · ${q.days.length} days</small></span>${q.id===p.id?'<span class="tag in">Active</span>':`<button class="ghost" data-act="switch" data-id="${q.id}">Switch</button>`}</div>`).join('')}</div><button class="btn sec wide" style="margin-top:10px" data-act="add">Add a person</button></section>`;
-  h+=`<section class="card"><h2>Training program</h2><p class="note" style="margin:4px 0 10px">Choose how Atlas lays out your week.</p><div class="seg"><button class="opt" data-act="setsplit" data-v="std" aria-current="${!isHL(p)}" style="display:block"><b>Atlas plan</b><small style="display:block">Your lifting days, with the workouts rotating through them.</small></button><button class="opt" data-act="setsplit" data-v="hl" aria-current="${isHL(p)}" style="display:block"><b>High/Low athlete week</b><small style="display:block">Hard days and easy days alternate. Mon upper, Tue speed and heavy legs, Wed easy cardio, Thu jumps and strength, Fri upper, Sat off, Sun speed and conditioning.</small></button></div></section>`;
+  h+=`<section class="card"><h2>Training program</h2><p class="note" style="margin:4px 0 10px">Choose how Atlas lays out your week.</p><div class="seg"><button class="opt" data-act="setsplit" data-v="std" aria-current="${!isHL(p)}" style="display:block"><b>Atlas plan</b><small style="display:block">Your lifting days, with the workouts rotating through them.</small></button><button class="opt" data-act="setsplit" data-v="hl" aria-current="${isHL(p)}" style="display:block"><b>High/Low athlete week</b><small style="display:block">Hard days and easy days alternate. Mon Upper Armour, Tue Speed + Lowers, Wed Aerobic, Thu Power + Lowers, Fri Upper Armour, Sat rest, Sun Speed + Fitness.</small></button></div></section>`;
   h+=backupCard();
-  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 16.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
+  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 17.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
   if(S.confirmDel===p.id)h+=`<div class="banner bad">Delete ${esc(p.name)} and all of their logged workouts? This can’t be undone.<div style="display:flex;gap:8px;margin-top:10px"><button class="btn danger" data-act="delyes">Delete</button><button class="btn sec" data-act="delno">Cancel</button></div></div>`;
   else h+=`<button class="link" style="color:var(--bad);align-self:flex-start" data-act="del">Delete ${esc(p.name)}</button>`;
   return h;
