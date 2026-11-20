@@ -333,6 +333,9 @@ const EQN=Object.fromEntries(EQUIP);
 const HOME_DEFAULT=['barbell','rack','bench','adjbench','dumbbells','cable','latpull','seatedrow','legcurl','legext','pullup','dip','preacher','medball','bands'];
 const CMODES=[['walk','Walk'],['run','Run'],['bike','Bike'],['rower','Rower'],['elliptical','Elliptical'],['rope','Jump rope'],['swim','Swim']];
 const CMN=Object.fromEntries(CMODES);
+// Things people do outside the app and log afterward.
+const ACTS=[['soccer','Soccer'],['basketball','Basketball'],['run','Run'],['bike','Bike'],['walk','Walk'],['hike','Hike'],['swim','Swim'],['tennis','Tennis / pickleball'],['yard','Yard work'],['other','Other']];
+const ACTN=Object.fromEntries(ACTS);
 const GOALS={strength:['Get stronger','Heavier weights, lower reps'],muscle:['Build muscle','Maximum growth: set volume targets, 5-week cycles'],general:['General fitness','Lighter, higher reps, time-efficient'],athletic:['Sport performance','Power work plus strength']};
 const CGOALS={none:['No cardio',''],health:['Heart health','About 150 easy minutes a week'],fatloss:['Fat loss','Easy sessions plus one interval day'],endurance:['Endurance','Easy, long and interval sessions'],conditioning:['Sport conditioning','Mostly intervals']};
 const EXP={new:['New to lifting','Under 6 months'],some:['Some experience','6 months to 2 years'],exp:['Experienced','2+ years of steady training']};
@@ -891,7 +894,8 @@ function buildPlan(p){
     const items=w.flow?its.map((it,i)=>(it.label=String.fromCharCode(65+(i%26)),it)):pairUp(its,p),dt=isoDate(dateFor(w.wd));
     const d={wd:w.wd,di:w.id,tk:null,name:w.name,items,custom:true,...(w.gen?{gen:true,flow:!!w.flow,replaced,rname:w.rname||null,genHigh:w.high}:{}),legs:items.some(it=>it.ex.k==='c'&&LOWER.has(it.ex.m)),comp:new Set(items.filter(it=>it.ex.k==='c'&&it.ex.m!=='power').map(it=>it.ex.m)),mins:estMin(items)};
     if(w.wd<t&&sess.some(x=>x.date===dt&&x.di===w.id))d.done=true;
-    if(w.wd<t&&!d.done)return;
+    if(w.wd<t&&!d.done&&!w.log)return;
+    if(w.log)d.log=true;
     custom.push(d);byWd[w.wd]=d;
   });
   let rotNote='';
@@ -904,7 +908,11 @@ function buildPlan(p){
   // Cardio the person skipped on a date is taken off that day only; other cardio days stay put.
   if(hlShift&&byWd[t])rotNote=hlShift.note;
   const cardio=hl?hlCardio(p,hlShift?hlShift.aerWd:2):cardioPlan(p,Object.values(byWd)),cardioAll={...cardio},cskips=new Set(p.cskips||[]),cskipWd={};
-  {const clogD=new Set((p.clog||[]).map(c=>c.date));for(let wd=0;wd<t;wd++)if(cardio[wd]&&!clogD.has(isoDate(dateFor(wd))))delete cardio[wd];}
+  {const clogD=new Set((p.clog||[]).filter(c=>!c.ext).map(c=>c.date));for(let wd=0;wd<t;wd++)if(cardio[wd]&&!clogD.has(isoDate(dateFor(wd))))delete cardio[wd];
+    // Activities logged afterward (soccer, a run...) show on their day.
+    for(let wd=0;wd<=t;wd++){const dt=isoDate(dateFor(wd)),xs=(p.clog||[]).filter(c=>c.ext&&c.date===dt);if(!xs.length||(wd===t&&cardio[wd]))continue;
+      const min=xs.reduce((a,c)=>a+(+c.min||0),0),hard=xs.some(c=>c.hard);
+      cardio[wd]={kind:hard?'intervals':'easy',mode:xs[0].mode,min,title:listJoin(xs.map(c=>c.title)),detail:'Logged',logged:true};}}
   for(let wd=0;wd<7;wd++)if(cardio[wd]&&cskips.has(isoDate(dateFor(wd)))){cskipWd[wd]=cardio[wd];delete cardio[wd];}
   return{days:out,byWd,custom,rEnd:r,skips,skipWd,cardio,cardioAll,cskips,cskipWd,warnings,rotNote,doneToday,meso};
 }
@@ -1376,6 +1384,15 @@ function stressWeek(plan){const s=[];for(let wd=0;wd<7;wd++)s[wd]=stressOf(plan.
 const stressPill=s=>s?(s.hi?'<span class="pill hi">High day</span>':'<span class="pill lo">Low day</span>'):'';
 function stressWarnings(s){const out=[];for(let wd=0;wd<7;wd++){const nx=(wd+1)%7;if(s[wd]&&s[wd].hi&&s[nx]&&s[nx].hi)out.push(`${WDL[wd]} and ${WDL[nx]} are both high days. Back-to-back hard days leave you tired for the second one. Move one, or make one of them easy.`);}return out;}
 const legend=()=>`<div class="legend"><span><i class="mk lift"></i>Lifting</span><span><i class="mk cardio"></i>Cardio</span><span><i class="mk rest"></i>Rest</span></div>`;
+// Activities logged for a day, each removable, plus buttons to log more (and a lifting session on past days).
+function loggedHTML(p,sel){
+  const dt=isoDate(dateFor(sel)),xs=(p.clog||[]).filter(c=>c.ext&&c.date===dt),t=todayIdx();
+  const plan=buildPlan(p),past=sel<t&&!plan.byWd[sel];
+  let h='';
+  if(xs.length)h+=`<section class="card cardio"><span class="ctag">Logged activity</span>${xs.map(c=>`<div class="sess"><b>${esc(c.title)}</b><span>${c.min} min${c.hard?' · hard':''} <button class="link" data-act="rmact" data-id="${c.id}" style="margin-left:8px;font-size:13px">Remove</button></span></div>`).join('')}</section>`;
+  h+=`<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sec" style="flex:1" data-act="logact" data-date="${dt}">+ Log cardio or a sport</button>${past?`<button class="btn sec" style="flex:1" data-act="loglift" data-wd="${sel}">+ Log a lifting workout</button>`:''}</div>`;
+  return h;
+}
 function cardioCard(c,p,isToday){
   const done=isToday&&p&&p.cdone===isoDate();
   return `<section class="card cardio"><span class="ctag">Cardio · ${esc(CMN[c.mode]||c.mode)}</span><div class="ctitle"><h3>${c.title}</h3><span class="mins">${c.min} min</span></div><p class="note" style="color:var(--ink)">${c.detail}</p>${c.after?`<p class="note" style="margin-top:6px">${c.after}</p>`:''}${isToday?(done?`<p class="cdone" style="margin:10px 0 0">✓ Cardio done today <button class="link" data-act="cundo" style="margin-left:8px;font-size:13px">Undo</button></p>`:`<button class="btn sec" style="margin-top:10px" data-act="cdone">Mark cardio done</button>`):''}</section>`;
@@ -1581,12 +1598,13 @@ function todayView(p,plan){
   if(!day){
     const prev=plan.byWd[(sel+6)%7];let next=null;
     for(let k=1;k<=7;k++){const d=plan.byWd[(sel+k)%7];if(d){next=d;break;}}
-    h+=`<section class="card"><p style="margin:0">${sel<t&&!c?'No workout logged this day.':`${c?'No lifting today.':'Full rest.'} Muscles rebuild between sessions, so recovery days are when strength and size actually grow.`}</p>${prev&&!pre?`<p class="note" style="margin-top:8px">Recovering from ${WD[prev.wd]}: ${listJoin([...prev.comp].map(m=>MUSCLES[m]))}.</p>`:''}${next?`<p class="note" style="margin-top:4px">Next lift: ${esc(next.name)} on ${WDL[next.wd]}. Tap a day above to train it now.</p>`:''}</section>`;
+    h+=`<section class="card"><p style="margin:0">${sel<t?(c?'No lifting logged this day.':'No workout logged this day.'):`${c?'No lifting today.':'Full rest.'} Muscles rebuild between sessions, so recovery days are when strength and size actually grow.`}</p>${prev&&!pre?`<p class="note" style="margin-top:8px">Recovering from ${WD[prev.wd]}: ${listJoin([...prev.comp].map(m=>MUSCLES[m]))}.</p>`:''}${next?`<p class="note" style="margin-top:4px">Next lift: ${esc(next.name)} on ${WDL[next.wd]}. Tap a day above to train it now.</p>`:''}</section>`;
     if(!pre&&sel>=t)h+=`<button class="btn sec wide" data-act="gen" data-wd="${sel}">${DICE}Random workout</button><button class="btn sec wide" data-act="flow" data-wd="${sel}">${DICE}Nonstop: one random exercise at a time</button>`;
-    if(!pre)h+=newWorkoutBtn(sel,true);
+    if(!pre&&sel>=t)h+=newWorkoutBtn(sel,true);
   }
   if(!day&&sel===t){const ms=muscleStatus(p,plan);if(ms.length)h+=`<section class="card"><h2 style="margin-bottom:8px">Muscle status</h2>${statusTiles(ms)}</section>`;}
-  if(c)h+=cardioCard(c,p,sel===t)+(sel>=t&&!(sel===t&&p.cdone===isoDate())?cskipBtn(isoDate(dateFor(sel))):'');
+  if(sel<=t)h+=loggedHTML(p,sel);
+  if(c&&!c.logged)h+=cardioCard(c,p,sel===t)+(sel>=t&&!(sel===t&&p.cdone===isoDate())?cskipBtn(isoDate(dateFor(sel))):'');
   if(!c&&plan.cskipWd[sel])h+=cskippedNote(plan.cskipWd[sel],isoDate(dateFor(sel)));
   if(day&&!day.items.length)h+=`<section class="card"><p style="margin:0">No exercises in ${esc(day.name)} yet. Add a few to build it.</p></section>`+customHTML(p,day);
   // A workout already saved for this date shows as done, with what was logged, instead of a fresh list.
@@ -1888,7 +1906,7 @@ function profileView(p){
   h+=`<section class="card"><h2>Household</h2><p class="note" style="margin:4px 0 6px">Each person gets their own plan, weights and history.</p><div class="people">${S.profiles.map(q=>`<div class="person"><span class="av" style="width:30px;height:30px;border-radius:50%;background:${q.id===p.id?'var(--accent)':'var(--surface-2)'};color:${q.id===p.id?'var(--accent-ink)':'var(--ink)'};display:grid;place-items:center;font-weight:700">${initials(q.name)}</span><span><b>${esc(q.name)}</b><br><small class="note">${GOALS[q.goal][0]} · ${q.days.length} days</small></span>${q.id===p.id?'<span class="tag in">Active</span>':`<button class="ghost" data-act="switch" data-id="${q.id}">Switch</button>`}</div>`).join('')}</div><button class="btn sec wide" style="margin-top:10px" data-act="add">Add a person</button></section>`;
   h+=`<section class="card"><h2>Training program</h2><p class="note" style="margin:4px 0 10px">Choose how Atlas lays out your week.</p><div class="seg"><button class="opt" data-act="setsplit" data-v="std" aria-current="${!isHL(p)}" style="display:block"><b>Atlas plan</b><small style="display:block">Your lifting days, with the workouts rotating through them.</small></button><button class="opt" data-act="setsplit" data-v="hl" aria-current="${isHL(p)}" style="display:block"><b>High/Low athlete week</b><small style="display:block">3 hard days and 3 easy days, with the exact sessions from the video: Mon Upper Armour, Tue Speed + Lowers, Wed Aerobic, Thu Power + Lowers, Fri Upper Armour, Sat rest, Sun Speed + Fitness.</small></button></div></section>`;
   h+=backupCard();
-  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 22.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
+  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 23.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
   if(S.confirmDel===p.id)h+=`<div class="banner bad">Delete ${esc(p.name)} and all of their logged workouts? This can’t be undone.<div style="display:flex;gap:8px;margin-top:10px"><button class="btn danger" data-act="delyes">Delete</button><button class="btn sec" data-act="delno">Cancel</button></div></div>`;
   else h+=`<button class="link" style="color:var(--bad);align-self:flex-start" data-act="del">Delete ${esc(p.name)}</button>`;
   return h;
@@ -1947,6 +1965,18 @@ function sheetView(p,plan){
     const list=LIB.filter(x=>x.m===sh.m).sort((a,b)=>(avail(b,eq)-avail(a,eq))||(a.i-b.i));
     const usedToday=new Set();const sd=dayByDi(plan,parseDi(sh.key.match(/^d(\d+|w\d+)/)[1]));(sd?sd.items:[]).forEach(i=>usedToday.add(i.ex.id));
     return `<div class="scrim" data-act="close"><div class="sheet" role="dialog" aria-modal="true" aria-label="Swap exercise" data-stop="1"><div class="sheethead"><div><div class="eyebrow">${MUSCLES[sh.m]}</div><h2>Choose an exercise</h2></div><button class="ghost" data-act="close">Close</button></div><p class="note">Everything that trains your ${MUSCLES[sh.m].toLowerCase()}. Your choice sticks for this slot each week.</p>${list.map(x=>{const ok=avail(x,eq),cur=x.id===sh.cur,dup=!cur&&usedToday.has(x.id);return `<button class="opt" data-act="pick" data-ex="${x.id}" ${cur?'aria-current="true"':''} ${!ok||dup?'disabled':''}><span><b>${esc(x.n)}</b><small>${x.k==='c'?'Compound':'Isolation'}${x.s.length?' · also '+x.s.map(m=>MUSCLES[m].toLowerCase()).join(', '):''}${!ok?' · needs '+x.eq.filter(e=>!eq.has(e)).map(e=>EQN[e].toLowerCase()).join(', '):''}${dup?' · already in this workout':''}</small></span><span class="tag ${cur?'in':''}">${cur?'Current':''}</span></button>`;}).join('')}</div></div>`;
+  }
+  if(sh.type==='logact'){
+    const a=sh.act||'soccer';
+    return `<div class="scrim" data-act="close"><div class="sheet" role="dialog" aria-modal="true" aria-label="Log an activity" data-stop="1"><div class="sheethead"><div><div class="eyebrow">Done outside the app</div><h2>Log an activity</h2></div><button class="ghost" data-act="close">Close</button></div>
+    <div class="mchips" style="flex:none;flex-wrap:wrap">${ACTS.map(([k,n])=>`<button data-act="logactk" data-k="${k}" aria-pressed="${k===a}">${n}</button>`).join('')}</div>
+    ${a==='other'?`<label class="f"><span>What did you do?</span><input id="f-aname" maxlength="30" placeholder="For example: Climbing" value="${esc(sh.name||'')}"></label>`:''}
+    <label class="f"><span>Minutes</span><input id="f-amin" type="number" inputmode="numeric" min="1" max="600" value="${esc(sh.min||'60')}"></label>
+    <label class="f"><span>Date</span><input id="f-adate" type="date" max="${isoDate()}" value="${esc(sh.date)}"></label>
+    <div class="eyebrow" style="margin-top:4px">How hard was it?</div>
+    <div class="mchips" style="flex:none;flex-wrap:wrap"><button data-act="logacth" data-v="0" aria-pressed="${!sh.hard}">Easy to moderate</button><button data-act="logacth" data-v="1" aria-pressed="${!!sh.hard}">Hard (lots of sprinting)</button></div>
+    ${S.flash?`<p class="formerr">${esc(S.flash)}</p>`:''}
+    <button class="btn wide" data-act="logactgo">Save</button><p class="note">It shows on your calendar and counts as that day’s cardio. Hard sessions count as a High day.</p></div></div>`;
   }
   if(sh.type==='neww'){
     return `<div class="scrim" data-act="close"><div class="sheet" role="dialog" aria-modal="true" aria-label="Add a workout" data-stop="1"><div class="sheethead"><div><div class="eyebrow">${WDL[sh.wd]}</div><h2>${sh.only?'Pick a workout':'Add a workout'}</h2></div><button class="ghost" data-act="close">Close</button></div>${progChoices(p,sh)}${sh.only?'':`<label class="f"><span>Name</span><input id="f-wname" maxlength="40" placeholder="For example: Arms" value="${esc(sh.name||'')}"></label><p class="note">A one-time workout for ${WDL[sh.wd]}, ${fmtDay(dateFor(sh.wd))}. Weights are set like your other lifts, and your regular rotation doesn’t change.</p><div class="eyebrow" style="margin-top:4px">Start from</div><button class="opt" data-act="newwgo" data-src="blank"><span><b>Blank</b><small>Pick each exercise yourself</small></span><span class="tag">Start</span></button>${plan.days.map(d=>`<button class="opt" data-act="newwgo" data-src="${d.di}"><span><b>Copy of ${esc(d.name)}</b><small>${d.items.length} exercises · ${esc(listJoin([...new Set(d.items.map(i=>MUSCLES[i.ex.m]))]))}</small></span><span class="tag">Copy</span></button>`).join('')}`}</div></div>`;
@@ -2023,7 +2053,7 @@ function currentDay(p,plan){return dayFor(p,plan,S.viewDay??todayIdx());}
 function keepScroll(fn){const y=window.scrollY;fn();render();window.scrollTo({top:y});}
 function finishWorkout(){
   const p=active(),plan=buildPlan(p),day=currentDay(p,plan);if(!day)return;
-  const k=draftKey(p,day),d=getDraft(p,day);
+  const k=draftKey(p,day),d=getDraft(p,day),sdate=day.wd<todayIdx()?isoDate(dateFor(day.wd)):isoDate();
   const snap={pid:p.id,prog:JSON.parse(JSON.stringify(p.prog||{})),extra:p.extra?JSON.parse(JSON.stringify(p.extra)):null,k,d:JSON.parse(JSON.stringify(d)),t:Date.now()};
   const entries=[],rows=[];p.prog=p.prog||{};let prs=0;
   day.items.forEach(it=>{
@@ -2046,11 +2076,12 @@ function finishWorkout(){
       else note='Same target next time';
     }
     if(isPR)note='New personal best! '+note;
-    pr.last=isoDate();p.prog[it.ex.id]=pr;rows.push({n:it.ex.n,note,up:allTop||isPR});
+    pr.last=sdate;p.prog[it.ex.id]=pr;rows.push({n:it.ex.n,note,up:allTop||isPR});
   });
   if(!entries.length){S.flash='Check off at least one set before finishing.';render();return;}
   S.flash='';
-  p.sessions=p.sessions||[];p.sessions.push({date:isoDate(),name:day.name,di:day.catchup?null:day.di,tk:day.catchup?null:day.tk,entries,...(day.prog!=null?{prog:day.prog}:{}),...(day.gen&&day.rname?{rname:day.rname}:{})});
+  p.sessions=p.sessions||[];p.sessions.push({date:sdate,name:day.name,di:day.catchup?null:day.di,tk:day.catchup?null:day.tk,entries,...(day.prog!=null?{prog:day.prog}:{}),...(day.gen&&day.rname?{rname:day.rname}:{})});
+  if(sdate<isoDate())p.sessions.sort((x,y)=>x.date<y.date?-1:x.date>y.date?1:0);
   snap.ref=p.sessions[p.sessions.length-1];S.undo=snap;S.confirmRestart=false;
   if(p.sessions.length>200)p.sessions=p.sessions.slice(-200);
   clearDraft(p,k);
@@ -2179,8 +2210,8 @@ document.addEventListener('click',e=>{
     case 'cisave':if(!S.ci||!S.ci.energy)break;p.checkin={date:isoDate(),energy:S.ci.energy,sore:S.ci.sore.slice()};S.ci=null;S.ciEdit=false;Store.save(p);keepScroll(()=>{});break;
     case 'ciedit':{const c=p.checkin;S.ciEdit=true;S.ci={energy:c?c.energy:null,sore:c&&c.sore?c.sore.slice():[]};keepScroll(()=>{});break;}
     case 'cicancel':S.ciEdit=false;S.ci=null;keepScroll(()=>{});break;
-    case 'cdone':{const t=isoDate(),c=buildPlan(p).cardio[todayIdx()];p.cdone=t;p.clog=(p.clog||[]).filter(x=>x.date!==t);if(c)p.clog.push({date:t,title:c.title,min:c.min,mode:c.mode});if(p.clog.length>400)p.clog=p.clog.slice(-400);Store.save(p);keepScroll(()=>{});break;}
-    case 'cundo':{const t=isoDate();delete p.cdone;p.clog=(p.clog||[]).filter(x=>x.date!==t);Store.save(p);keepScroll(()=>{});break;}
+    case 'cdone':{const t=isoDate(),c=buildPlan(p).cardio[todayIdx()];p.cdone=t;p.clog=(p.clog||[]).filter(x=>x.date!==t||x.ext);if(c)p.clog.push({date:t,title:c.title,min:c.min,mode:c.mode});if(p.clog.length>400)p.clog=p.clog.slice(-400);Store.save(p);keepScroll(()=>{});break;}
+    case 'cundo':{const t=isoDate();delete p.cdone;p.clog=(p.clog||[]).filter(x=>x.date!==t||x.ext);Store.save(p);keepScroll(()=>{});break;}
     case 'calmode':S.calMode=b.dataset.v;S.calMsg='';S.calDay=null;keepScroll(()=>{});break;
     case 'calprev':case 'calnext':{const dir=a==='calprev'?-1:1;S.calMsg='';S.calDay=null;
       if(S.calMode==='week')S.wk=addDays(calWeek(),7*dir);
@@ -2237,6 +2268,23 @@ document.addEventListener('click',e=>{
     case 'skiptimer':S.timer=null;saveUi();renderTimer();break;
     case 'swap':S.sheet={type:'swap',key:b.dataset.key,m:b.dataset.m,cur:b.dataset.cur};{const y=window.scrollY;render();window.scrollTo({top:y});}break;
     case 'info':S.sheet={type:'info',ex:b.dataset.ex};{const y=window.scrollY;render();window.scrollTo({top:y});}break;
+    case 'logact':S.flash='';S.sheet={type:'logact',date:b.dataset.date||isoDate(),act:'soccer',min:'60',hard:false};keepScroll(()=>{});break;
+    case 'logactk':case 'logacth':{const sh=S.sheet;const g=id=>{const el=document.getElementById(id);return el?el.value:null;};
+      if(g('f-amin')!=null)sh.min=g('f-amin');if(g('f-adate'))sh.date=g('f-adate');if(g('f-aname')!=null)sh.name=g('f-aname');
+      if(a==='logactk')sh.act=b.dataset.k;else sh.hard=b.dataset.v==='1';
+      {const sc=document.querySelector('.sheet'),y=sc?sc.scrollTop:0;keepScroll(()=>{});const s2=document.querySelector('.sheet');if(s2)s2.scrollTop=y;}break;}
+    case 'logactgo':{const sh=S.sheet,min=Math.round(+document.getElementById('f-amin').value),date=document.getElementById('f-adate').value,nm=document.getElementById('f-aname');
+      const title=sh.act==='other'?((nm&&nm.value.trim().slice(0,30))||'Activity'):ACTN[sh.act];
+      if(!(min>0&&min<=600)){S.flash='Enter the minutes, between 1 and 600.';keepScroll(()=>{});break;}
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date>isoDate()){S.flash='Pick today or an earlier date.';keepScroll(()=>{});break;}
+      const mode={run:'run',bike:'bike',walk:'walk',hike:'walk',swim:'swim'}[sh.act]||'other';
+      p.clog=p.clog||[];p.clog.push({id:'a'+Date.now(),date,title,min,mode,hard:!!sh.hard,ext:true});p.clog.sort((x,y)=>x.date<y.date?-1:x.date>y.date?1:0);
+      S.sheet=null;S.flash='';Store.save(p);keepScroll(()=>{});break;}
+    case 'rmact':p.clog=(p.clog||[]).filter(c=>c.id!==b.dataset.id);Store.save(p);keepScroll(()=>{});break;
+    case 'loglift':{const wd=+b.dataset.wd;let id='w'+Date.now();while(cwOf(p,id))id='w'+(Date.now()+Math.floor(Math.random()*1000));
+      const date=isoDate(dateFor(wd)),wk0=isoDate(dateFor(0));
+      p.cw=(p.cw||[]).filter(w=>w.date&&w.date>=wk0&&w.date!==date);p.cw.push({id,name:'Logged workout',wd,date,log:true,list:[]});
+      S.sheet={type:'add',di:id,m:'chest'};S.viewDay=wd;Store.save(p);keepScroll(()=>{});break;}
     case 'close':S.sheet=null;{const y=window.scrollY;render();window.scrollTo({top:y});}break;
     case 'pick':{const ua=S.sheet.key.match(UKEY);
       if(ua){const di=parseDi(ua[1]);setAdds(p,di,getAdds(p,di).map(id=>id===ua[2]?b.dataset.ex:id));const cw=isCW(di)&&cwOf(p,di);if(cw&&cw.pslot&&cw.pslot[ua[2]]!=null){cw.pslot[b.dataset.ex]=cw.pslot[ua[2]];delete cw.pslot[ua[2]];}}
