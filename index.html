@@ -1473,6 +1473,15 @@ function guideView(p,day){
 // Remove works on the workout's own exercises, not today-only catch-up ones, and always leaves at least one.
 const canRm=(it,ctx)=>ctx&&!ctx.catchup&&ctx.di!=null&&!it.auto&&!it.extra&&(ctx.custom||ctx.items.length>1);
 // "Add an exercise" button plus the list of exercises taken out of this workout, with a way to put each back.
+// After a workout is saved: add more exercises today. They're saved into the same workout.
+function keepGoingHTML(p,plan,day){
+  const xs=day.items.filter(i=>i.extra),d=getDraft(p,day);let h='';
+  if(xs.length)h+=`<div class="eyebrow" style="margin-top:4px">Keep going</div>`+xs.map(it=>exCard(it,d,p,plan.meso,day)).join('')+(S.flash?`<p class="formerr">${esc(S.flash)}</p>`:'')+`<button class="btn wide" data-act="finish">Save ${xs.length>1?'these exercises':'this exercise'}</button><p class="note" style="text-align:center">Added to today’s ${esc(day.name)}.</p>`;
+  const have=new Set(day.items.filter(i=>i.extra).map(i=>i.ex.m)),eq=eqSet(p);
+  const ms=Object.keys(MUSCLES).filter(m=>!have.has(m)&&LIB.some(x=>x.m===m&&!x.po&&avail(x,eq)));
+  h+=`<section class="card"><h2 style="margin-bottom:4px">${xs.length?'Add another?':'Want to keep going?'}</h2><p class="note" style="margin:0 0 10px">Pick a muscle and Atlas adds an exercise for it. It’s saved into today’s workout.</p><div class="mchips" style="flex:none;flex-wrap:wrap">${ms.map(m=>`<button data-act="addm" data-m="${m}">${MUSCLES[m]}</button>`).join('')}</div><button class="btn sec wide" style="margin-top:10px" data-act="addrand">${DICE}Add a random exercise</button></section>`;
+  return h;
+}
 function customHTML(p,day){
   if(!day||day.catchup||day.di==null)return '';
   const gone=removedOf(p,day.di);
@@ -1611,6 +1620,7 @@ function todayView(p,plan){
   const dsess=day&&day.items.length&&sel<=t?(p.sessions||[]).filter(s=>s.date===isoDate(dateFor(sel))&&(s.di===day.di||s.name===day.name)).pop():null;
   if(dsess&&S.reopen!==isoDate(dateFor(sel))+'|'+day.di){
     h+=`<section class="card" style="border-color:var(--good)"><div class="eyebrow" style="color:var(--good)">${CHECK} Workout done</div><h2 style="margin:4px 0 8px">${esc(dsess.name)} is in the books</h2>${dsess.entries.map(e=>{const ex=BY[e.id];return `<div class="sess"><b>${esc(ex?ex.n:e.id)}</b><span>${esc(setStr(e.id,e.sets).replace(/x/g,'×'))}</span></div>`;}).join('')}<p class="note" style="margin-top:8px">Saved to your history and progress. Atlas has set your weights for next time.</p><button class="link" style="margin-top:6px" data-act="reopen" data-k="${isoDate(dateFor(sel))}|${day.di}">Log more sets for this workout</button></section>`;
+    if(sel===t)h+=keepGoingHTML(p,plan,day);
     return h;
   }
   if(day&&day.items.length){
@@ -1906,7 +1916,7 @@ function profileView(p){
   h+=`<section class="card"><h2>Household</h2><p class="note" style="margin:4px 0 6px">Each person gets their own plan, weights and history.</p><div class="people">${S.profiles.map(q=>`<div class="person"><span class="av" style="width:30px;height:30px;border-radius:50%;background:${q.id===p.id?'var(--accent)':'var(--surface-2)'};color:${q.id===p.id?'var(--accent-ink)':'var(--ink)'};display:grid;place-items:center;font-weight:700">${initials(q.name)}</span><span><b>${esc(q.name)}</b><br><small class="note">${GOALS[q.goal][0]} · ${q.days.length} days</small></span>${q.id===p.id?'<span class="tag in">Active</span>':`<button class="ghost" data-act="switch" data-id="${q.id}">Switch</button>`}</div>`).join('')}</div><button class="btn sec wide" style="margin-top:10px" data-act="add">Add a person</button></section>`;
   h+=`<section class="card"><h2>Training program</h2><p class="note" style="margin:4px 0 10px">Choose how Atlas lays out your week.</p><div class="seg"><button class="opt" data-act="setsplit" data-v="std" aria-current="${!isHL(p)}" style="display:block"><b>Atlas plan</b><small style="display:block">Your lifting days, with the workouts rotating through them.</small></button><button class="opt" data-act="setsplit" data-v="hl" aria-current="${isHL(p)}" style="display:block"><b>High/Low athlete week</b><small style="display:block">3 hard days and 3 easy days, with the exact sessions from the video: Mon Upper Armour, Tue Speed + Lowers, Wed Aerobic, Thu Power + Lowers, Fri Upper Armour, Sat rest, Sun Speed + Fitness.</small></button></div></section>`;
   h+=backupCard();
-  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 23.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
+  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 24.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
   if(S.confirmDel===p.id)h+=`<div class="banner bad">Delete ${esc(p.name)} and all of their logged workouts? This can’t be undone.<div style="display:flex;gap:8px;margin-top:10px"><button class="btn danger" data-act="delyes">Delete</button><button class="btn sec" data-act="delno">Cancel</button></div></div>`;
   else h+=`<button class="link" style="color:var(--bad);align-self:flex-start" data-act="del">Delete ${esc(p.name)}</button>`;
   return h;
@@ -2080,9 +2090,13 @@ function finishWorkout(){
   });
   if(!entries.length){S.flash='Check off at least one set before finishing.';render();return;}
   S.flash='';
-  p.sessions=p.sessions||[];p.sessions.push({date:sdate,name:day.name,di:day.catchup?null:day.di,tk:day.catchup?null:day.tk,entries,...(day.prog!=null?{prog:day.prog}:{}),...(day.gen&&day.rname?{rname:day.rname}:{})});
+  p.sessions=p.sessions||[];
+  const prior=p.sessions.filter(s=>s.date===sdate&&(s.di===(day.catchup?null:day.di)||s.name===day.name)).pop();
+  if(prior){snap.ref=prior;snap.merged=JSON.parse(JSON.stringify(prior.entries));
+    entries.forEach(e=>{const o=prior.entries.find(x=>x.id===e.id);if(o)o.sets=o.sets.concat(e.sets);else prior.entries.push(e);});}
+  else p.sessions.push({date:sdate,name:day.name,di:day.catchup?null:day.di,tk:day.catchup?null:day.tk,entries,...(day.prog!=null?{prog:day.prog}:{}),...(day.gen&&day.rname?{rname:day.rname}:{})});
   if(sdate<isoDate())p.sessions.sort((x,y)=>x.date<y.date?-1:x.date>y.date?1:0);
-  snap.ref=p.sessions[p.sessions.length-1];S.undo=snap;S.confirmRestart=false;
+  if(!prior)snap.ref=p.sessions[p.sessions.length-1];S.undo=snap;S.confirmRestart=false;
   if(p.sessions.length>200)p.sessions=p.sessions.slice(-200);
   clearDraft(p,k);
   if(p.extra&&p.extra.date===isoDate())delete p.extra;
@@ -2144,7 +2158,7 @@ document.addEventListener('click',e=>{
     case 'unskip':{const plan=buildPlan(p),day=currentDay(p,plan);if(!day)break;const d=getDraft(p,day),x=d[b.dataset.k];if(!x)break;
       x.sets.forEach(s=>{delete s.skip;});saveDraft(p,day,d);keepScroll(()=>{});break;}
     case 'undofin':{const u=S.undo;if(!u||u.pid!==p.id)break;
-      p.sessions=(p.sessions||[]).filter(s=>s!==u.ref);p.prog=u.prog;if(u.extra)p.extra=u.extra;else delete p.extra;
+      if(u.merged)u.ref.entries=u.merged;else p.sessions=(p.sessions||[]).filter(s=>s!==u.ref);p.prog=u.prog;if(u.extra)p.extra=u.extra;else delete p.extra;
       u.d._ts=Date.now();S.drafts[u.k]=u.d;lsSet('atlas.d.'+u.k,u.d);Store.saveDraft(p.id,u.k,u.d);
       S.undo=null;S.summary=null;Store.save(p);render();window.scrollTo({top:0});break;}
     case 'tab':S.tab=b.dataset.tab;S.editing=false;S.adding=false;S.confirmDel=null;if(S.tab==='today'){S.viewDay=null;S.wkOff=0;}render();window.scrollTo({top:0});break;
@@ -2227,6 +2241,17 @@ document.addEventListener('click',e=>{
       if(!p.extra||p.extra.date!==isoDate()||p.extra.wd!==wd)p.extra={date:isoDate(),wd,list:[]};
       if(!p.extra.list.some(x=>x.m===m))p.extra.list.push({m,id:ex.id});
       S.viewDay=wd;Store.save(p);keepScroll(()=>{});break;}
+    case 'addrand':{const wd=todayIdx(),plan=buildPlan(p),day=dayFor(p,plan,wd);
+      const done=new Set((p.sessions||[]).filter(x=>x.date===isoDate()).flatMap(x=>x.entries.map(e=>e.id))),inDay=new Set(day?day.items.map(i=>i.ex.id):[]);
+      const have=new Set(p.extra&&p.extra.date===isoDate()&&p.extra.wd===wd?p.extra.list.map(x=>x.m):[]);
+      // Favor muscles the chart says need work, then anything that fits the day.
+      const need=muscleStatus(p,plan).filter(x=>x.st==='overdue'||x.st==='due').map(x=>x.m);
+      const g=genWorkout(p,wd,true),pool=[...need.flatMap(m=>g.list.filter(id=>BY[id].m===m)),...g.list];
+      let ex=pool.map(id=>BY[id]).find(x=>x&&!done.has(x.id)&&!inDay.has(x.id)&&!have.has(x.m)&&x.m!=='power');
+      if(!ex){const ms=Object.keys(MUSCLES).filter(m=>m!=='power'&&!have.has(m));for(let k=0;k<20&&!ex;k++){const m=ms[Math.floor(Math.random()*ms.length)];ex=pickEx({m,k:'i',seed:'r'+Date.now()+k,key:'r'+m},eqSet(p),new Set([...done,...inDay]),{},p);}}
+      if(!ex)break;
+      if(!p.extra||p.extra.date!==isoDate()||p.extra.wd!==wd)p.extra={date:isoDate(),wd,list:[]};
+      p.extra.list.push({m:ex.m,id:ex.id});S.viewDay=wd;Store.save(p);keepScroll(()=>{});break;}
     case 'rmx':if(p.extra){p.extra.list=p.extra.list.filter(x=>x.m!==b.dataset.m);if(!p.extra.list.length)delete p.extra;Store.save(p);}keepScroll(()=>{});break;
     case 'rmex':{const k=b.dataset.key,ua=k.match(UKEY);
       if(ua){const di=parseDi(ua[1]);setAdds(p,di,getAdds(p,di).filter(id=>id!==ua[2]));}
