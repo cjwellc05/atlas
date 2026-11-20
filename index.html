@@ -839,7 +839,7 @@ function buildPlan(p){
   // Rotation: the next workout follows the last one actually finished, not the weekday.
   const byWd={},t=todayIdx(),today=isoDate(),n2=out.length,sess=p.sessions||[],skips=new Set(p.skips||[]),skipWd={};
   let last=null;
-  for(let i=sess.length-1;i>=0&&n2;i--){const s=sess[i];if(isCW(s.di))continue;let di=(s.di!=null&&out[s.di]&&out[s.di].tk===s.tk)?s.di:out.findIndex(d=>d.name===s.name);if(di>=0){last={s,di};break;}}
+  for(let i=sess.length-1;i>=0&&n2;i--){const s=sess[i];if(isCW(s.di)&&!s.rname)continue;let di=s.rname?out.findIndex(d=>d.name===s.rname):(s.di!=null&&out[s.di]&&out[s.di].tk===s.tk)?s.di:out.findIndex(d=>d.name===s.name);if(di>=0){last={s,di};break;}}
   const doneToday=!!(last&&last.s.date===today),next=last?(last.di+1)%(n2||1):0;
   let r=doneToday?last.di:next;
   out.forEach(d=>{if(d.wd>=t)return;const dt=isoDate(dateFor(d.wd)),s=sess.find(x=>x.date===dt&&x.name!=='Catch-up session'&&!isCW(x.di));
@@ -851,10 +851,10 @@ function buildPlan(p){
   let hlShift=null;
   if(hl){
     const wk0=isoDate(dateFor(0)),wk6=isoDate(dateFor(6));
-    const weekSess=sess.filter(x=>x.date>=wk0&&x.date<=wk6&&!isCW(x.di)),doneName=new Set(weekSess.map(x=>x.name));
+    const weekSess=sess.filter(x=>x.date>=wk0&&x.date<=wk6&&(!isCW(x.di)||x.rname)),doneName=new Set(weekSess.map(x=>x.rname||x.name));
     const missed=out.filter(d=>{const dt=isoDate(dateFor(d.wd));return d.wd<t&&!doneName.has(d.name)&&!skips.has(dt)&&!(p.start&&dt<p.start);});
     if(missed.length){
-      const todayS=weekSess.find(x=>x.date===today),todayDay=todayS?out.find(o=>o.name===todayS.name):null;
+      const todayS=weekSess.find(x=>x.date===today),todayDay=todayS?out.find(o=>o.name===(todayS.rname||todayS.name)):null;
       const queue=missed.map(d=>({lift:d}));
       for(let wd=t;wd<7;wd++){const d=out.find(o=>o.wd===wd);if(d){if(!doneName.has(d.name))queue.push({lift:d});}else if(wd===2)queue.push({aer:true});}
       const prevDay=byWd[t-1];let prevHigh=!!(prevDay&&prevDay.done&&prevDay.hlHigh),start=t,aerWd=null;
@@ -876,7 +876,7 @@ function buildPlan(p){
     if(!w.date)w.date=isoDate(dateFor(w.wd));
     if(w.date!==isoDate(dateFor(w.wd)))return;
     if(custom.some(c=>c.wd===w.wd))return;
-    if(byWd[w.wd]&&(w.prog==null||byWd[w.wd].done))return;
+    if(byWd[w.wd]&&((w.prog==null&&!w.gen)||byWd[w.wd].done))return;
     const replaced=byWd[w.wd]?byWd[w.wd].name:null;
     if(w.prog!=null){
       const items=progItems(p,w,false),dt=isoDate(dateFor(w.wd));
@@ -887,7 +887,7 @@ function buildPlan(p){
     const seen=new Set(),its=[];
     w.list.forEach(id=>{const ex=BY[id];if(!ex||!avail(ex,eq)||seen.has(id))return;seen.add(id);const it=makeItem(p,ex,'d'+w.id+'u'+id);if(focus2.has(ex.m))it.rx.sets+=1;if(meso.deload)it.rx.sets=Math.max(1,Math.round(it.rx.sets*0.5));its.push(it);});
     const items=pairUp(its,p),dt=isoDate(dateFor(w.wd));
-    const d={wd:w.wd,di:w.id,tk:null,name:w.name,items,custom:true,legs:items.some(it=>it.ex.k==='c'&&LOWER.has(it.ex.m)),comp:new Set(items.filter(it=>it.ex.k==='c'&&it.ex.m!=='power').map(it=>it.ex.m)),mins:estMin(items)};
+    const d={wd:w.wd,di:w.id,tk:null,name:w.name,items,custom:true,...(w.gen?{gen:true,replaced,rname:w.rname||null}:{}),legs:items.some(it=>it.ex.k==='c'&&LOWER.has(it.ex.m)),comp:new Set(items.filter(it=>it.ex.k==='c'&&it.ex.m!=='power').map(it=>it.ex.m)),mins:estMin(items)};
     if(w.wd<t&&sess.some(x=>x.date===dt&&x.di===w.id))d.done=true;
     custom.push(d);byWd[w.wd]=d;
   });
@@ -1020,6 +1020,37 @@ function muscleStatus(p,plan){
     let next=null;for(let k=0;k<7;k++){const d=plan.byWd[(todayIdx()+k)%7];if(d&&d.items.some(i=>i.ex.m===m)){next=k;break;}}
     return{m,days,st,never:!last[m],next};
   });
+}
+// Random workout: built from what the day calls for. It keeps the day's High/Low type and muscles,
+// leans toward muscles that are due, and leaves out ones still recovering.
+const GEN_HIGH=['power','quads','hamstrings','glutes','calves','core'],GEN_LOW=['chest','lats','upperback','shoulders','biceps','triceps','core','calves'];
+function genWorkout(p,wd){
+  const p2={...p,cw:(p.cw||[]).filter(w=>!(w.gen&&w.date===isoDate(dateFor(wd))))},plan=buildPlan(p2),eq=eqSet(p);
+  const base=plan.byWd[wd]&&!plan.byWd[wd].custom&&!plan.byWd[wd].done?plan.byWd[wd]:null;
+  const st=base?stressOf(base,plan.cardio[wd]):null,high=!!(st&&st.hi);
+  const status={};muscleStatus(p,plan).forEach(x=>status[x.m]=x.st);
+  const need={overdue:0,due:1,ready:2,recovering:3},rnd=()=>Math.random();
+  const planned=base?[...new Set(base.items.map(i=>i.ex.m))]:[];
+  const fits=new Set(high?GEN_HIGH:GEN_LOW);
+  if(base&&!isHL(p))planned.forEach(m=>fits.add(m));
+  // Muscles: the day's own, plus any that are overdue and fit the day's type. Recovering ones only if the day calls for them.
+  let ms=[...new Set([...planned,...[...fits].filter(m=>status[m]==='overdue'||status[m]==='due'||!base)])].filter(m=>fits.has(m)||planned.includes(m));
+  ms=ms.filter(m=>planned.includes(m)||status[m]!=='recovering');
+  const score=m=>(m==='power'?-9:0)+(need[status[m]]??2)+(planned.includes(m)?-0.5:0)+(m==='core'||m==='calves'?1.5:0)+rnd()*1.2;
+  ms.sort((a,b)=>score(a)-score(b));
+  const n=Math.max(4,Math.min(8,base?base.items.length:((+p.minutes||60)>=60?6:5)));
+  const seed='g'+Date.now()+'|'+Math.floor(rnd()*1e6),used=new Set(),list=[],BIG=new Set(['quads','hamstrings','glutes','chest','lats','upperback','shoulders']);
+  const take=(m,k,i)=>{const ex=pickEx({m,k,seed,key:'g'+i+m},eq,used,{},p);if(ex){used.add(ex.id);list.push(ex);}return !!ex;};
+  ms.forEach((m,i)=>{if(list.length<n)take(m,BIG.has(m)&&(high||!LOWER.has(m))?'c':'i',i);});
+  for(let pass=0;list.length<n&&pass<3;pass++)ms.filter(m=>m!=='power'&&m!=='core').forEach((m,i)=>{if(list.length<n)take(m,'i',100+pass*10+i);});
+  // Big lifts first, then the rest; power always leads.
+  const ord=ex=>ex.m==='power'?0:ex.k==='c'?1:(ex.m==='core'||ex.m==='calves')?3:2;
+  list.sort((a,b)=>ord(a)-ord(b));
+  // Keep it inside the session time: drop the last small exercises until it fits.
+  const cap=Math.max(base?base.mins:0,+p.minutes||60)+5;
+  while(list.length>4&&estMin(pairUp(list.map((ex,i)=>makeItem(p,ex,'t'+i)),p))>cap)list.splice(list.map(ord).lastIndexOf(Math.max(...list.map(ord))),1);
+  const kind=isHL(p)||st?(high?'high-day':'low-day'):'';
+  return{name:`Random ${kind?kind+' ':''}workout`,rname:base?base.name:null,list:list.map(x=>x.id)};
 }
 function rampSets(it){
   if(!it||it.w==null)return null;const ex=it.ex,w=it.w;
@@ -1282,6 +1313,7 @@ function beep(){
 
 /* ---------- view pieces ---------- */
 const PLATE='<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2.5"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="currentColor" stroke-width="1" opacity=".5"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/></svg>';
+const DICE='<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="vertical-align:-3px;margin-right:6px"><rect x="4" y="4" width="16" height="16" rx="3.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="9" r="1.4" fill="currentColor"/><circle cx="15" cy="15" r="1.4" fill="currentColor"/><circle cx="15" cy="9" r="1.4" fill="currentColor"/><circle cx="9" cy="15" r="1.4" fill="currentColor"/></svg>';
 const SHUF='<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h3.5c2 0 3.2 1 4.3 2.6l2.4 4.8C14.3 16 15.5 17 17.5 17H21M3 17h3.5c2 0 3.2-1 4.3-2.6M13.2 9.6C14.3 8 15.5 7 17.5 7H21M18 4l3 3-3 3M18 14l3 3-3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const CHECK='<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 function wtag(ex){return{bw:'Bodyweight',band:'Band',ball:'Med ball',time:'Hold'}[ex.load]||'';}
@@ -1532,6 +1564,7 @@ function todayView(p,plan){
     const prev=plan.byWd[(sel+6)%7];let next=null;
     for(let k=1;k<=7;k++){const d=plan.byWd[(sel+k)%7];if(d){next=d;break;}}
     h+=`<section class="card"><p style="margin:0">${c?'No lifting today.':'Full rest.'} Muscles rebuild between sessions, so recovery days are when strength and size actually grow.</p>${prev&&!pre?`<p class="note" style="margin-top:8px">Recovering from ${WD[prev.wd]}: ${listJoin([...prev.comp].map(m=>MUSCLES[m]))}.</p>`:''}${next?`<p class="note" style="margin-top:4px">Next lift: ${esc(next.name)} on ${WDL[next.wd]}. Tap a day above to train it now.</p>`:''}</section>`;
+    if(!pre&&sel>=t)h+=`<button class="btn sec wide" data-act="gen" data-wd="${sel}">${DICE}Random workout</button>`;
     if(!pre)h+=newWorkoutBtn(sel,true);
   }
   if(!day&&sel===t){const ms=muscleStatus(p,plan);if(ms.length)h+=`<section class="card"><h2 style="margin-bottom:8px">Muscle status</h2>${statusTiles(ms)}</section>`;}
@@ -1550,6 +1583,8 @@ function todayView(p,plan){
     const logged=Object.values(d).some(v=>v&&v.sets&&v.sets.some(s=>s.done||s.skip));
     if(!day.catchup&&!day.custom&&logged)h+=`<p class="note" style="text-align:center">Shuffle is off once you’ve logged a set. Use Restart workout below to shuffle again.</p>`;
     if(!day.catchup&&!day.custom&&!logged)h+=`<button class="btn sec wide" data-act="shuffle" data-di="${day.di}">${SHUF}Shuffle exercises</button><p class="note" style="text-align:center;margin-top:-6px">New exercises for the same muscles. They stick until you shuffle again.</p>`;
+    if(day.gen&&!started&&!day.done&&sel>=t)h+=`<section class="card"><div class="eyebrow">${DICE}Random workout</div><p class="note" style="color:var(--ink);margin:4px 0 8px">Built for what ${sel===t?'today':WDL[sel]} calls for${day.replaced?`, in place of ${esc(day.replaced)}`:''}. Fresh exercises for the same kind of day, leaning toward muscles you haven’t trained lately.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sec" data-act="gen" data-wd="${sel}">${DICE}Roll again</button>${day.replaced?`<button class="btn sec" data-act="ungen" data-di="${day.di}">Back to ${esc(day.replaced)}</button>`:''}</div></section>`;
+    else if(!day.custom&&!day.catchup&&!day.done&&!logged&&sel>=t&&!(sel===t&&plan.doneToday))h+=`<button class="btn sec wide" data-act="gen" data-wd="${sel}">${DICE}Random workout</button><p class="note" style="text-align:center;margin-top:-6px">A fresh workout built for what ${sel===t?'today':'this day'} calls for: same ${st&&st.hi?'High':st?'Low':''}${st?' day, ':''}muscles that need work.</p>`;
     h+=day.items.map(it=>exCard(it,d,p,plan.meso,day)).join('');
     h+=customHTML(p,day);
     if(S.flash)h+=`<p class="formerr">${esc(S.flash)}</p>`;
@@ -1834,7 +1869,7 @@ function profileView(p){
   h+=`<section class="card"><h2>Household</h2><p class="note" style="margin:4px 0 6px">Each person gets their own plan, weights and history.</p><div class="people">${S.profiles.map(q=>`<div class="person"><span class="av" style="width:30px;height:30px;border-radius:50%;background:${q.id===p.id?'var(--accent)':'var(--surface-2)'};color:${q.id===p.id?'var(--accent-ink)':'var(--ink)'};display:grid;place-items:center;font-weight:700">${initials(q.name)}</span><span><b>${esc(q.name)}</b><br><small class="note">${GOALS[q.goal][0]} · ${q.days.length} days</small></span>${q.id===p.id?'<span class="tag in">Active</span>':`<button class="ghost" data-act="switch" data-id="${q.id}">Switch</button>`}</div>`).join('')}</div><button class="btn sec wide" style="margin-top:10px" data-act="add">Add a person</button></section>`;
   h+=`<section class="card"><h2>Training program</h2><p class="note" style="margin:4px 0 10px">Choose how Atlas lays out your week.</p><div class="seg"><button class="opt" data-act="setsplit" data-v="std" aria-current="${!isHL(p)}" style="display:block"><b>Atlas plan</b><small style="display:block">Your lifting days, with the workouts rotating through them.</small></button><button class="opt" data-act="setsplit" data-v="hl" aria-current="${isHL(p)}" style="display:block"><b>High/Low athlete week</b><small style="display:block">3 hard days and 3 easy days, with the exact sessions from the video: Mon Upper Armour, Tue Speed + Lowers, Wed Aerobic, Thu Power + Lowers, Fri Upper Armour, Sat rest, Sun Speed + Fitness.</small></button></div></section>`;
   h+=backupCard();
-  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 19.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
+  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 20.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
   if(S.confirmDel===p.id)h+=`<div class="banner bad">Delete ${esc(p.name)} and all of their logged workouts? This can’t be undone.<div style="display:flex;gap:8px;margin-top:10px"><button class="btn danger" data-act="delyes">Delete</button><button class="btn sec" data-act="delno">Cancel</button></div></div>`;
   else h+=`<button class="link" style="color:var(--bad);align-self:flex-start" data-act="del">Delete ${esc(p.name)}</button>`;
   return h;
@@ -1996,7 +2031,7 @@ function finishWorkout(){
   });
   if(!entries.length){S.flash='Check off at least one set before finishing.';render();return;}
   S.flash='';
-  p.sessions=p.sessions||[];p.sessions.push({date:isoDate(),name:day.name,di:day.catchup?null:day.di,tk:day.catchup?null:day.tk,entries,...(day.prog!=null?{prog:day.prog}:{})});
+  p.sessions=p.sessions||[];p.sessions.push({date:isoDate(),name:day.name,di:day.catchup?null:day.di,tk:day.catchup?null:day.tk,entries,...(day.prog!=null?{prog:day.prog}:{}),...(day.gen&&day.rname?{rname:day.rname}:{})});
   snap.ref=p.sessions[p.sessions.length-1];S.undo=snap;S.confirmRestart=false;
   if(p.sessions.length>200)p.sessions=p.sessions.slice(-200);
   clearDraft(p,k);
@@ -2161,6 +2196,12 @@ document.addEventListener('click',e=>{
       p.cw=(p.cw||[]).filter(w=>w.date&&w.date>=wk0&&w.date!==date);p.cw.push({id,name,wd,date,list:from?from.items.map(i=>i.ex.id):[]});
       S.sheet=from?null:{type:'add',di:id,m:'chest'};if(S.tab==='today')S.viewDay=wd;else S.openDay=wd;
       Store.save(p);keepScroll(()=>{});break;}
+    case 'gen':{const wd=+b.dataset.wd,g=genWorkout(p,wd);if(!g.list.length)break;
+      let id='w'+Date.now();while(cwOf(p,id))id='w'+(Date.now()+Math.floor(Math.random()*1000));
+      const date=isoDate(dateFor(wd)),wk0=isoDate(dateFor(0));
+      p.cw=(p.cw||[]).filter(w=>w.date&&w.date>=wk0&&w.date!==date);p.cw.push({id,name:g.name,wd,date,gen:true,rname:g.rname,list:g.list});
+      if(S.tab==='today')S.viewDay=wd;else S.openDay=wd;Store.save(p);keepScroll(()=>{});break;}
+    case 'ungen':p.cw=(p.cw||[]).filter(w=>w.id!==b.dataset.di);if(!p.cw.length)delete p.cw;Store.save(p);keepScroll(()=>{});break;
     case 'delw':S.confirmDelW=b.dataset.di;keepScroll(()=>{});break;
     case 'delwno':S.confirmDelW=null;keepScroll(()=>{});break;
     case 'delwyes':p.cw=(p.cw||[]).filter(w=>w.id!==b.dataset.di);if(!p.cw.length)delete p.cw;S.confirmDelW=null;Store.save(p);keepScroll(()=>{});break;
