@@ -1343,6 +1343,25 @@ async function syncWake(){
 }
 let actx=null;
 function unlockAudio(){try{if(!actx){const A=window.AudioContext||window.webkitAudioContext;if(A)actx=new A();}if(actx&&actx.state==='suspended')actx.resume();}catch(e){}}
+// The end-of-rest beep is scheduled on the audio clock when the timer starts, so it plays on time
+// even with Atlas in the background (Android mixes Web Audio over YouTube or music).
+let sched={end:null,nodes:[],to:null};
+function tone(at,nodes){const g=actx.createGain(),osc=actx.createOscillator();osc.type='sine';osc.frequency.value=880;
+  g.gain.setValueAtTime(0.0001,at);g.gain.exponentialRampToValueAtTime(0.6,at+0.02);g.gain.exponentialRampToValueAtTime(0.0001,at+0.22);
+  osc.connect(g);g.connect(actx.destination);osc.start(at);osc.stop(at+0.25);nodes.push(osc);}
+function cancelBeep(){sched.nodes.forEach(o=>{try{o.stop(0);o.disconnect();}catch(e){}});if(sched.to)clearTimeout(sched.to);sched={end:null,nodes:[],to:null};}
+function scheduleBeep(tm){
+  cancelBeep();const sec=(tm.end-Date.now())/1000;if(sec<=0.3)return;
+  sched.end=tm.end;
+  try{unlockAudio();if(actx){const t0=actx.currentTime+sec;[0,0.3,0.6].forEach(o=>tone(t0+o,sched.nodes));}}catch(e){}
+  // Backup: a phone notification if Atlas isn't on screen when rest ends.
+  sched.to=setTimeout(()=>{if(document.visibilityState!=='visible')notifyRest(tm);},sec*1000);
+}
+function notifyRest(tm){
+  try{if(!('Notification' in window)||Notification.permission!=='granted'||!navigator.serviceWorker)return;
+    navigator.serviceWorker.ready.then(r=>r.showNotification('Rest done',{body:tm.label&&/^Next|^Switch|^Rest ·/.test(tm.label)?tm.label.replace(/^Rest · then /,'Next: ').replace(/^Rest · /,'Next set: '):'Time for your next set.',tag:'atlas-timer',renotify:true,vibrate:[200,100,200],icon:'icons/icon-192.png',badge:'icons/icon-192.png'})).catch(()=>{});}catch(e){}
+}
+function askNotify(){try{if('Notification' in window&&Notification.permission==='default'&&!lsGet('atlas.np',false)){lsSet('atlas.np',true);Notification.requestPermission();}}catch(e){}}
 function beep(){
   try{if(!actx)return;const t=actx.currentTime;
     [0,0.28].forEach(o=>{const g=actx.createGain(),osc=actx.createOscillator();osc.type='sine';osc.frequency.value=880;
@@ -1932,7 +1951,7 @@ function profileView(p){
   h+=`<section class="card"><h2>Household</h2><p class="note" style="margin:4px 0 6px">Each person gets their own plan, weights and history.</p><div class="people">${S.profiles.map(q=>`<div class="person"><span class="av" style="width:30px;height:30px;border-radius:50%;background:${q.id===p.id?'var(--accent)':'var(--surface-2)'};color:${q.id===p.id?'var(--accent-ink)':'var(--ink)'};display:grid;place-items:center;font-weight:700">${initials(q.name)}</span><span><b>${esc(q.name)}</b><br><small class="note">${GOALS[q.goal][0]} · ${q.days.length} days</small></span>${q.id===p.id?'<span class="tag in">Active</span>':`<button class="ghost" data-act="switch" data-id="${q.id}">Switch</button>`}</div>`).join('')}</div><button class="btn sec wide" style="margin-top:10px" data-act="add">Add a person</button></section>`;
   h+=`<section class="card"><h2>Training program</h2><p class="note" style="margin:4px 0 10px">Choose how Atlas lays out your week.</p><div class="seg"><button class="opt" data-act="setsplit" data-v="std" aria-current="${!isHL(p)}" style="display:block"><b>Atlas plan</b><small style="display:block">Your lifting days, with the workouts rotating through them.</small></button><button class="opt" data-act="setsplit" data-v="hl" aria-current="${isHL(p)}" style="display:block"><b>High/Low athlete week</b><small style="display:block">3 hard days and 3 easy days, with the exact sessions from the video: Mon Upper Armour, Tue Speed + Lowers, Wed Aerobic, Thu Power + Lowers, Fri Upper Armour, Sat rest, Sun Speed + Fitness.</small></button></div></section>`;
   h+=backupCard();
-  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 26.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
+  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 27.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
   if(S.confirmDel===p.id)h+=`<div class="banner bad">Delete ${esc(p.name)} and all of their logged workouts? This can’t be undone.<div style="display:flex;gap:8px;margin-top:10px"><button class="btn danger" data-act="delyes">Delete</button><button class="btn sec" data-act="delno">Cancel</button></div></div>`;
   else h+=`<button class="link" style="color:var(--bad);align-self:flex-start" data-act="del">Delete ${esc(p.name)}</button>`;
   return h;
@@ -2066,13 +2085,14 @@ function restoreUi(){
 }
 function renderTimer(){
   const el=document.getElementById('timer');if(!el)return;
-  if(!S.timer){el.hidden=true;return;}
+  if(!S.timer){el.hidden=true;if(sched.end)cancelBeep();return;}
+  if(!S.timer.buzzed&&sched.end!==S.timer.end)scheduleBeep(S.timer);
   const left=Math.max(0,Math.ceil((S.timer.end-Date.now())/1000));
   el.hidden=false;
   el.querySelector('.tt').textContent=left>0?fmtClock(left):'Go';
   el.querySelector('.tl').textContent=left>0?S.timer.label:'Rest done. Next set.';
   el.querySelector('.tbar i').style.width=(100*(1-left/S.timer.total))+'%';
-  if(left===0&&!S.timer.buzzed){S.timer.buzzed=true;saveUi();if(document.visibilityState==='visible'){try{navigator.vibrate&&navigator.vibrate([200,100,200]);}catch(e){}beep();}const t=S.timer;setTimeout(()=>{if(S.timer===t){S.timer=null;saveUi();renderTimer();}},4000);}
+  if(left===0&&!S.timer.buzzed){S.timer.buzzed=true;saveUi();const played=sched.end===S.timer.end&&actx&&actx.state==='running';if(document.visibilityState==='visible'){try{navigator.vibrate&&navigator.vibrate([200,100,200]);}catch(e){}if(!played)beep();}const t=S.timer;setTimeout(()=>{if(S.timer===t){S.timer=null;saveUi();renderTimer();}},4000);}
 }
 setInterval(renderTimer,500);
 
@@ -2184,7 +2204,7 @@ document.addEventListener('click',e=>{
     case 'day':S.viewDay=+b.dataset.wd;S.flash='';render();break;
     case 'done':{
       const plan=buildPlan(p),day=currentDay(p,plan);if(!day)break;const it=day.items.find(x=>x.key===b.dataset.k),d=getDraft(p,day),s=d[b.dataset.k].sets[+b.dataset.i];
-      s.done=!s.done;
+      s.done=!s.done;if(s.done)askNotify();
       if(s.done){if(s.r==='')s.r=String(it.hi);if(it.w!=null&&s.w==='')s.w=String(it.w);
         if(it.partner)startTimer(45,`Switch to ${it.partner.label} · ${it.partner.ex.n}`);else startTimer(it.rx.rest,`Rest · ${it.ex.n}`);}
       saveDraft(p,day,d);
@@ -2200,7 +2220,7 @@ document.addEventListener('click',e=>{
     case 'wknext':shiftWeek(1);break;
     case 'wknow':S.wkOff=0;S.viewDay=null;render();window.scrollTo({top:0});break;
     case 'oday':S.viewOther=+b.dataset.wd;render();break;
-    case 'guide':S.guide=true;S.wkOff=0;S.flash='';S.cheer='';S.viewDay=S.viewDay??todayIdx();render();window.scrollTo({top:0});break;
+    case 'guide':askNotify();S.guide=true;S.wkOff=0;S.flash='';S.cheer='';S.viewDay=S.viewDay??todayIdx();render();window.scrollTo({top:0});break;
     case 'unguide':S.guide=false;render();break;
     case 'setsplit':{const v=b.dataset.v;if(v==='hl'&&!isHL(p)){p.daysStd=p.days.slice();p.split='hl';p.days=HL_DAYS.slice();}
       else if(v==='std'&&isHL(p)){delete p.split;p.days=(p.daysStd&&p.daysStd.length)?p.daysStd:p.days;delete p.daysStd;}

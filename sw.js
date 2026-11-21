@@ -1,5 +1,5 @@
 // Atlas service worker: app shell offline, fonts cached on first use.
-const VERSION = 'atlas-v26';
+const VERSION = 'atlas-v27';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'vendor/jspdf.umd.min.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-48.png'];
 
@@ -27,4 +27,12 @@ self.addEventListener('fetch', e => {
       return r;
     })));
   }
+});
+// Tapping the "Rest done" notification brings Atlas back to the front.
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    const w = list.find(c => 'focus' in c);
+    return w ? w.focus() : self.clients.openWindow('./');
+  }));
 });
