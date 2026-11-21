@@ -892,7 +892,7 @@ function buildPlan(p){
     const seen=new Set(),its=[];
     w.list.forEach(id=>{const ex=BY[id];if(!ex||!avail(ex,eq)||seen.has(id))return;seen.add(id);const it=makeItem(p,ex,'d'+w.id+'u'+id);if(focus2.has(ex.m))it.rx.sets+=1;if(meso.deload)it.rx.sets=Math.max(1,Math.round(it.rx.sets*0.5));its.push(it);});
     const items=w.flow?its.map((it,i)=>(it.label=String.fromCharCode(65+(i%26)),it)):pairUp(its,p),dt=isoDate(dateFor(w.wd));
-    const d={wd:w.wd,di:w.id,tk:null,name:w.name,items,custom:true,...(w.gen?{gen:true,flow:!!w.flow,replaced,rname:w.rname||null,genHigh:w.high}:{}),legs:items.some(it=>it.ex.k==='c'&&LOWER.has(it.ex.m)),comp:new Set(items.filter(it=>it.ex.k==='c'&&it.ex.m!=='power').map(it=>it.ex.m)),mins:estMin(items)};
+    const d={wd:w.wd,di:w.id,tk:null,name:w.name,items,custom:true,...(w.gen?{gen:true,flow:!!w.flow,grp:w.grp||null,replaced,rname:w.rname||null,genHigh:w.high}:{}),legs:items.some(it=>it.ex.k==='c'&&LOWER.has(it.ex.m)),comp:new Set(items.filter(it=>it.ex.k==='c'&&it.ex.m!=='power').map(it=>it.ex.m)),mins:estMin(items)};
     if(w.wd<t&&sess.some(x=>x.date===dt&&x.di===w.id))d.done=true;
     if(w.wd<t&&!d.done&&!w.log)return;
     if(w.log)d.log=true;
@@ -1036,6 +1036,21 @@ function muscleStatus(p,plan){
 // Random workout: built from what the day calls for. It keeps the day's High/Low type and muscles,
 // leans toward muscles that are due, and leaves out ones still recovering.
 const GEN_HIGH=['power','quads','hamstrings','glutes','calves','core'],GEN_LOW=['chest','lats','upperback','shoulders','biceps','triceps','core','calves'];
+// Muscle-group workouts: one area trained hard, with exercises picked fresh (and shuffled) each time.
+const GROUPS={
+  legs:{n:'Leg day',hi:true,d:'Quads, hamstrings, glutes and calves',slots:[['quads','c'],['hamstrings','c'],['quads','c'],['glutes','c'],['hamstrings','i'],['calves','i']]},
+  chest:{n:'Chest day',d:'Chest, with a triceps finisher',slots:[['chest','c'],['chest','c'],['chest','c'],['chest','i'],['triceps','i']]},
+  arms:{n:'Arm day',d:'Biceps and triceps',slots:[['biceps','i'],['triceps','c'],['biceps','i'],['triceps','i'],['biceps','i'],['triceps','i']]},
+  core:{n:'Core day',d:'Abs, obliques and bracing',slots:[['core','c'],['core','i'],['core','i'],['core','i'],['core','i']]},
+  back:{n:'Back day',d:'Lats and upper back, with biceps',slots:[['lats','c'],['upperback','c'],['lats','c'],['upperback','i'],['biceps','i']]},
+  shoulders:{n:'Shoulder day',d:'Front, side and rear delts',slots:[['shoulders','c'],['shoulders','i'],['shoulders','c'],['shoulders','i'],['upperback','i']]}
+};
+function grpWorkout(p,g){
+  const G=GROUPS[g],eq=eqSet(p),used=new Set(),seed='m'+Date.now()+'|'+Math.floor(Math.random()*1e6),list=[];
+  G.slots.forEach(([m,k],i)=>{const ex=pickEx({m,k,seed,key:'g'+i},eq,used,{},p);if(ex){used.add(ex.id);list.push(ex.id);}});
+  return list;
+}
+const grpChoices=wd=>`<div class="eyebrow" style="margin-top:4px">Muscle-group workouts</div>${Object.entries(GROUPS).map(([k,G])=>`<button class="opt" data-act="grpgo" data-g="${k}" data-wd="${wd}"><span><b>${G.n}</b><small>${G.d}</small></span><span class="tag">Pick</span></button>`).join('')}`;
 function genWorkout(p,wd,open){
   const p2={...p,cw:(p.cw||[]).filter(w=>!(w.gen&&w.date===isoDate(dateFor(wd))))},plan=buildPlan(p2),eq=eqSet(p);
   const base=plan.byWd[wd]&&!plan.byWd[wd].custom&&!plan.byWd[wd].done?plan.byWd[wd]:null;
@@ -1608,7 +1623,7 @@ function todayView(p,plan){
     const prev=plan.byWd[(sel+6)%7];let next=null;
     for(let k=1;k<=7;k++){const d=plan.byWd[(sel+k)%7];if(d){next=d;break;}}
     h+=`<section class="card"><p style="margin:0">${sel<t?(c?'No lifting logged this day.':'No workout logged this day.'):`${c?'No lifting today.':'Full rest.'} Muscles rebuild between sessions, so recovery days are when strength and size actually grow.`}</p>${prev&&!pre?`<p class="note" style="margin-top:8px">Recovering from ${WD[prev.wd]}: ${listJoin([...prev.comp].map(m=>MUSCLES[m]))}.</p>`:''}${next?`<p class="note" style="margin-top:4px">Next lift: ${esc(next.name)} on ${WDL[next.wd]}. Tap a day above to train it now.</p>`:''}</section>`;
-    if(!pre&&sel>=t)h+=`<button class="btn sec wide" data-act="gen" data-wd="${sel}">${DICE}Random workout</button><button class="btn sec wide" data-act="flow" data-wd="${sel}">${DICE}Nonstop: one random exercise at a time</button>`;
+    if(!pre&&sel>=t)h+=`<button class="btn sec wide" data-act="gen" data-wd="${sel}">${DICE}Random workout</button><button class="btn sec wide" data-act="flow" data-wd="${sel}">${DICE}Nonstop: one random exercise at a time</button><button class="btn sec wide" data-act="grp" data-wd="${sel}">Train one muscle group: legs, chest, arms…</button>`;
     if(!pre&&sel>=t)h+=newWorkoutBtn(sel,true);
   }
   if(!day&&sel===t){const ms=muscleStatus(p,plan);if(ms.length)h+=`<section class="card"><h2 style="margin-bottom:8px">Muscle status</h2>${statusTiles(ms)}</section>`;}
@@ -1630,8 +1645,9 @@ function todayView(p,plan){
     if(!day.catchup&&!day.custom&&logged)h+=`<p class="note" style="text-align:center">Shuffle is off once you’ve logged a set. Use Restart workout below to shuffle again.</p>`;
     if(!day.catchup&&!day.custom&&!logged)h+=`<button class="btn sec wide" data-act="shuffle" data-di="${day.di}">${SHUF}Shuffle exercises</button><p class="note" style="text-align:center;margin-top:-6px">New exercises for the same muscles. They stick until you shuffle again.</p>`;
     if(day.flow&&!day.done&&sel>=t)h+=`<section class="card"><div class="eyebrow">${DICE}Nonstop workout</div><p class="note" style="color:var(--ink);margin:4px 0 8px">One exercise at a time. When you finish an exercise, Atlas adds a new one for ${sel===t?'today':WDL[sel]}${day.replaced?` (in place of ${esc(day.replaced)})`:''}. Tap <b>Finish workout</b> whenever you’re done.</p>${day.replaced&&!started?`<button class="btn sec" data-act="ungen" data-di="${day.di}">Back to ${esc(day.replaced)}</button>`:''}</section>`;
+    else if(day.grp&&GROUPS[day.grp]&&!started&&!day.done&&sel>=t)h+=`<section class="card"><div class="eyebrow">Muscle-group workout</div><p class="note" style="color:var(--ink);margin:4px 0 8px">${esc(GROUPS[day.grp].d)}${day.replaced?`, in place of ${esc(day.replaced)}`:''}. Tap Shuffle for different exercises.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sec" data-act="grpgo" data-g="${day.grp}" data-wd="${sel}">${SHUF}Shuffle</button><button class="btn sec" data-act="grp" data-wd="${sel}">Other muscle group</button>${day.replaced?`<button class="btn sec" data-act="ungen" data-di="${day.di}">Back to ${esc(day.replaced)}</button>`:''}</div></section>`;
     else if(day.gen&&!started&&!day.done&&sel>=t)h+=`<section class="card"><div class="eyebrow">${DICE}Random workout</div><p class="note" style="color:var(--ink);margin:4px 0 8px">Built for what ${sel===t?'today':WDL[sel]} calls for${day.replaced?`, in place of ${esc(day.replaced)}`:''}. Fresh exercises for the same kind of day, leaning toward muscles you haven’t trained lately.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sec" data-act="gen" data-wd="${sel}">${DICE}Roll again</button><button class="btn sec" data-act="flow" data-wd="${sel}">One at a time</button>${day.replaced?`<button class="btn sec" data-act="ungen" data-di="${day.di}">Back to ${esc(day.replaced)}</button>`:''}</div></section>`;
-    else if(!day.custom&&!day.catchup&&!day.done&&!logged&&sel>=t&&!(sel===t&&plan.doneToday))h+=`<button class="btn sec wide" data-act="gen" data-wd="${sel}">${DICE}Random workout</button><button class="btn sec wide" data-act="flow" data-wd="${sel}">${DICE}Nonstop: one random exercise at a time</button><p class="note" style="text-align:center;margin-top:-6px">A fresh workout built for what ${sel===t?'today':'this day'} calls for: same ${st&&st.hi?'High':st?'Low':''}${st?' day, ':''}muscles that need work.</p>`;
+    else if(!day.custom&&!day.catchup&&!day.done&&!logged&&sel>=t&&!(sel===t&&plan.doneToday))h+=`<button class="btn sec wide" data-act="gen" data-wd="${sel}">${DICE}Random workout</button><button class="btn sec wide" data-act="flow" data-wd="${sel}">${DICE}Nonstop: one random exercise at a time</button><button class="btn sec wide" data-act="grp" data-wd="${sel}">Train one muscle group: legs, chest, arms…</button><p class="note" style="text-align:center;margin-top:-6px">A fresh workout built for what ${sel===t?'today':'this day'} calls for: same ${st&&st.hi?'High':st?'Low':''}${st?' day, ':''}muscles that need work.</p>`;
     h+=day.items.map(it=>exCard(it,d,p,plan.meso,day)).join('');
     h+=customHTML(p,day);
     if(S.flash)h+=`<p class="formerr">${esc(S.flash)}</p>`;
@@ -1916,7 +1932,7 @@ function profileView(p){
   h+=`<section class="card"><h2>Household</h2><p class="note" style="margin:4px 0 6px">Each person gets their own plan, weights and history.</p><div class="people">${S.profiles.map(q=>`<div class="person"><span class="av" style="width:30px;height:30px;border-radius:50%;background:${q.id===p.id?'var(--accent)':'var(--surface-2)'};color:${q.id===p.id?'var(--accent-ink)':'var(--ink)'};display:grid;place-items:center;font-weight:700">${initials(q.name)}</span><span><b>${esc(q.name)}</b><br><small class="note">${GOALS[q.goal][0]} · ${q.days.length} days</small></span>${q.id===p.id?'<span class="tag in">Active</span>':`<button class="ghost" data-act="switch" data-id="${q.id}">Switch</button>`}</div>`).join('')}</div><button class="btn sec wide" style="margin-top:10px" data-act="add">Add a person</button></section>`;
   h+=`<section class="card"><h2>Training program</h2><p class="note" style="margin:4px 0 10px">Choose how Atlas lays out your week.</p><div class="seg"><button class="opt" data-act="setsplit" data-v="std" aria-current="${!isHL(p)}" style="display:block"><b>Atlas plan</b><small style="display:block">Your lifting days, with the workouts rotating through them.</small></button><button class="opt" data-act="setsplit" data-v="hl" aria-current="${isHL(p)}" style="display:block"><b>High/Low athlete week</b><small style="display:block">3 hard days and 3 easy days, with the exact sessions from the video: Mon Upper Armour, Tue Speed + Lowers, Wed Aerobic, Thu Power + Lowers, Fri Upper Armour, Sat rest, Sun Speed + Fitness.</small></button></div></section>`;
   h+=backupCard();
-  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 25.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
+  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 26.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
   if(S.confirmDel===p.id)h+=`<div class="banner bad">Delete ${esc(p.name)} and all of their logged workouts? This can’t be undone.<div style="display:flex;gap:8px;margin-top:10px"><button class="btn danger" data-act="delyes">Delete</button><button class="btn sec" data-act="delno">Cancel</button></div></div>`;
   else h+=`<button class="link" style="color:var(--bad);align-self:flex-start" data-act="del">Delete ${esc(p.name)}</button>`;
   return h;
@@ -1988,8 +2004,11 @@ function sheetView(p,plan){
     ${S.flash?`<p class="formerr">${esc(S.flash)}</p>`:''}
     <button class="btn wide" data-act="logactgo">Save</button><p class="note">It shows on your calendar and counts as that day’s cardio. Hard sessions count as a High day.</p></div></div>`;
   }
+  if(sh.type==='grp'){
+    return `<div class="scrim" data-act="close"><div class="sheet" role="dialog" aria-modal="true" aria-label="Muscle-group workouts" data-stop="1"><div class="sheethead"><div><div class="eyebrow">${WDL[sh.wd]}</div><h2>Train one muscle group</h2></div><button class="ghost" data-act="close">Close</button></div><p class="note">${sh.rname?`Replaces ${esc(sh.rname)} for ${WDL[sh.wd]} only. Your regular plan doesn’t change.`:`A one-time workout for ${WDL[sh.wd]}.`} Exercises are picked fresh each time, with weights set like your other lifts.</p>${grpChoices(sh.wd)}</div></div>`;
+  }
   if(sh.type==='neww'){
-    return `<div class="scrim" data-act="close"><div class="sheet" role="dialog" aria-modal="true" aria-label="Add a workout" data-stop="1"><div class="sheethead"><div><div class="eyebrow">${WDL[sh.wd]}</div><h2>${sh.only?'Pick a workout':'Add a workout'}</h2></div><button class="ghost" data-act="close">Close</button></div>${progChoices(p,sh)}${sh.only?'':`<label class="f"><span>Name</span><input id="f-wname" maxlength="40" placeholder="For example: Arms" value="${esc(sh.name||'')}"></label><p class="note">A one-time workout for ${WDL[sh.wd]}, ${fmtDay(dateFor(sh.wd))}. Weights are set like your other lifts, and your regular rotation doesn’t change.</p><div class="eyebrow" style="margin-top:4px">Start from</div><button class="opt" data-act="newwgo" data-src="blank"><span><b>Blank</b><small>Pick each exercise yourself</small></span><span class="tag">Start</span></button>${plan.days.map(d=>`<button class="opt" data-act="newwgo" data-src="${d.di}"><span><b>Copy of ${esc(d.name)}</b><small>${d.items.length} exercises · ${esc(listJoin([...new Set(d.items.map(i=>MUSCLES[i.ex.m]))]))}</small></span><span class="tag">Copy</span></button>`).join('')}`}</div></div>`;
+    return `<div class="scrim" data-act="close"><div class="sheet" role="dialog" aria-modal="true" aria-label="Add a workout" data-stop="1"><div class="sheethead"><div><div class="eyebrow">${WDL[sh.wd]}</div><h2>${sh.only?'Pick a workout':'Add a workout'}</h2></div><button class="ghost" data-act="close">Close</button></div>${progChoices(p,sh)}${grpChoices(sh.wd)}${sh.only?'':`<label class="f"><span>Name</span><input id="f-wname" maxlength="40" placeholder="For example: Arms" value="${esc(sh.name||'')}"></label><p class="note">A one-time workout for ${WDL[sh.wd]}, ${fmtDay(dateFor(sh.wd))}. Weights are set like your other lifts, and your regular rotation doesn’t change.</p><div class="eyebrow" style="margin-top:4px">Start from</div><button class="opt" data-act="newwgo" data-src="blank"><span><b>Blank</b><small>Pick each exercise yourself</small></span><span class="tag">Start</span></button>${plan.days.map(d=>`<button class="opt" data-act="newwgo" data-src="${d.di}"><span><b>Copy of ${esc(d.name)}</b><small>${d.items.length} exercises · ${esc(listJoin([...new Set(d.items.map(i=>MUSCLES[i.ex.m]))]))}</small></span><span class="tag">Copy</span></button>`).join('')}`}</div></div>`;
   }
   if(sh.type==='add'){
     const d=dayByDi(plan,sh.di);if(!d)return '';
@@ -2275,6 +2294,13 @@ document.addEventListener('click',e=>{
       p.cw=(p.cw||[]).filter(w=>w.date&&w.date>=wk0&&w.date!==date);p.cw.push({id,name,wd,date,list:from?from.items.map(i=>i.ex.id):[]});
       S.sheet=from?null:{type:'add',di:id,m:'chest'};if(S.tab==='today')S.viewDay=wd;else S.openDay=wd;
       Store.save(p);keepScroll(()=>{});break;}
+    case 'grp':{const wd=+b.dataset.wd,pl=buildPlan(p),d0=pl.byWd[wd];S.sheet={type:'grp',wd,rname:d0&&!d0.custom?d0.name:(d0&&d0.replaced)||null};keepScroll(()=>{});break;}
+    case 'grpgo':{const g=b.dataset.g,G=GROUPS[g],wd=+b.dataset.wd,date=isoDate(dateFor(wd)),wk0=isoDate(dateFor(0));if(!G)break;
+      const list=grpWorkout(p,g);if(!list.length)break;
+      const pl=buildPlan({...p,cw:(p.cw||[]).filter(w=>w.date!==date)}),base=pl.byWd[wd]&&!pl.byWd[wd].done?pl.byWd[wd]:null;
+      let id='w'+Date.now();while(cwOf(p,id))id='w'+(Date.now()+Math.floor(Math.random()*1000));
+      p.cw=(p.cw||[]).filter(w=>w.date&&w.date>=wk0&&w.date!==date);p.cw.push({id,name:G.n,wd,date,gen:true,grp:g,rname:base?base.name:null,high:!!G.hi,list});
+      S.sheet=null;if(S.tab==='today')S.viewDay=wd;else S.openDay=wd;Store.save(p);keepScroll(()=>{});break;}
     case 'flow':{const wd=+b.dataset.wd,g=genWorkout(p,wd,true);if(!g.list.length)break;
       let id='w'+Date.now();while(cwOf(p,id))id='w'+(Date.now()+Math.floor(Math.random()*1000));
       const date=isoDate(dateFor(wd)),wk0=isoDate(dateFor(0));
