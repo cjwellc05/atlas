@@ -910,7 +910,7 @@ function buildPlan(p){
   const cardio=hl?hlCardio(p,hlShift?hlShift.aerWd:2):cardioPlan(p,Object.values(byWd)),cardioAll={...cardio},cskips=new Set(p.cskips||[]),cskipWd={};
   {const clogD=new Set((p.clog||[]).filter(c=>!c.ext).map(c=>c.date));for(let wd=0;wd<t;wd++)if(cardio[wd]&&!clogD.has(isoDate(dateFor(wd))))delete cardio[wd];
     // Activities logged afterward (soccer, a run...) show on their day.
-    for(let wd=0;wd<=t;wd++){const dt=isoDate(dateFor(wd)),xs=(p.clog||[]).filter(c=>c.ext&&c.date===dt);if(!xs.length||(wd===t&&cardio[wd]))continue;
+    for(let wd=0;wd<=t;wd++){const dt=isoDate(dateFor(wd)),xs=(p.clog||[]).filter(c=>c.ext&&c.date===dt);if(!xs.length)continue;
       const min=xs.reduce((a,c)=>a+(+c.min||0),0),hard=xs.some(c=>c.hard);
       cardio[wd]={kind:hard?'intervals':'easy',mode:xs[0].mode,min,title:listJoin(xs.map(c=>c.title)),detail:'Logged',logged:true};}}
   for(let wd=0;wd<7;wd++)if(cardio[wd]&&cskips.has(isoDate(dateFor(wd)))){cskipWd[wd]=cardio[wd];delete cardio[wd];}
@@ -1916,7 +1916,7 @@ function profileView(p){
   h+=`<section class="card"><h2>Household</h2><p class="note" style="margin:4px 0 6px">Each person gets their own plan, weights and history.</p><div class="people">${S.profiles.map(q=>`<div class="person"><span class="av" style="width:30px;height:30px;border-radius:50%;background:${q.id===p.id?'var(--accent)':'var(--surface-2)'};color:${q.id===p.id?'var(--accent-ink)':'var(--ink)'};display:grid;place-items:center;font-weight:700">${initials(q.name)}</span><span><b>${esc(q.name)}</b><br><small class="note">${GOALS[q.goal][0]} · ${q.days.length} days</small></span>${q.id===p.id?'<span class="tag in">Active</span>':`<button class="ghost" data-act="switch" data-id="${q.id}">Switch</button>`}</div>`).join('')}</div><button class="btn sec wide" style="margin-top:10px" data-act="add">Add a person</button></section>`;
   h+=`<section class="card"><h2>Training program</h2><p class="note" style="margin:4px 0 10px">Choose how Atlas lays out your week.</p><div class="seg"><button class="opt" data-act="setsplit" data-v="std" aria-current="${!isHL(p)}" style="display:block"><b>Atlas plan</b><small style="display:block">Your lifting days, with the workouts rotating through them.</small></button><button class="opt" data-act="setsplit" data-v="hl" aria-current="${isHL(p)}" style="display:block"><b>High/Low athlete week</b><small style="display:block">3 hard days and 3 easy days, with the exact sessions from the video: Mon Upper Armour, Tue Speed + Lowers, Wed Aerobic, Thu Power + Lowers, Fri Upper Armour, Sat rest, Sun Speed + Fitness.</small></button></div></section>`;
   h+=backupCard();
-  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 24.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
+  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 25.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
   if(S.confirmDel===p.id)h+=`<div class="banner bad">Delete ${esc(p.name)} and all of their logged workouts? This can’t be undone.<div style="display:flex;gap:8px;margin-top:10px"><button class="btn danger" data-act="delyes">Delete</button><button class="btn sec" data-act="delno">Cancel</button></div></div>`;
   else h+=`<button class="link" style="color:var(--bad);align-self:flex-start" data-act="del">Delete ${esc(p.name)}</button>`;
   return h;
@@ -2303,7 +2303,7 @@ document.addEventListener('click',e=>{
       if(!(min>0&&min<=600)){S.flash='Enter the minutes, between 1 and 600.';keepScroll(()=>{});break;}
       if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date>isoDate()){S.flash='Pick today or an earlier date.';keepScroll(()=>{});break;}
       const mode={run:'run',bike:'bike',walk:'walk',hike:'walk',swim:'swim'}[sh.act]||'other';
-      p.clog=p.clog||[];p.clog.push({id:'a'+Date.now(),date,title,min,mode,hard:!!sh.hard,ext:true});p.clog.sort((x,y)=>x.date<y.date?-1:x.date>y.date?1:0);
+      p.clog=p.clog||[];p.clog.push({id:'a'+Date.now()+Math.floor(Math.random()*1000),date,title,min,mode,hard:!!sh.hard,ext:true});p.clog.sort((x,y)=>x.date<y.date?-1:x.date>y.date?1:0);
       S.sheet=null;S.flash='';Store.save(p);keepScroll(()=>{});break;}
     case 'rmact':p.clog=(p.clog||[]).filter(c=>c.id!==b.dataset.id);Store.save(p);keepScroll(()=>{});break;
     case 'loglift':{const wd=+b.dataset.wd;let id='w'+Date.now();while(cwOf(p,id))id='w'+(Date.now()+Math.floor(Math.random()*1000));
