@@ -216,6 +216,7 @@ legend{font-family:var(--f-display);font-weight:700;font-size:19px;letter-spacin
 .scrim{position:fixed;inset:0;z-index:50;background:rgba(10,12,16,.5);display:flex;align-items:flex-end;justify-content:center}
 .sheet{background:var(--bg);width:100%;max-width:720px;max-height:82%;overflow:auto;border-radius:16px 16px 0 0;padding:16px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:12px}
 .sheethead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.undobar{position:fixed;left:50%;transform:translateX(-50%);top:calc(70px + env(safe-area-inset-top,0px));z-index:60;display:flex;align-items:center;gap:14px;background:var(--ink);color:var(--bg);border-radius:10px;padding:10px 12px 10px 16px;font-size:14px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:calc(100% - 32px)}.undobar[hidden]{display:none}.undobar button{background:none;border:0;color:var(--bg);font-weight:800;text-decoration:underline;font-size:14px;padding:4px}
 .opt{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px}
 .opt[aria-current="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .opt:disabled{opacity:.5;cursor:not-allowed}
@@ -1951,7 +1952,7 @@ function profileView(p){
   h+=`<section class="card"><h2>Household</h2><p class="note" style="margin:4px 0 6px">Each person gets their own plan, weights and history.</p><div class="people">${S.profiles.map(q=>`<div class="person"><span class="av" style="width:30px;height:30px;border-radius:50%;background:${q.id===p.id?'var(--accent)':'var(--surface-2)'};color:${q.id===p.id?'var(--accent-ink)':'var(--ink)'};display:grid;place-items:center;font-weight:700">${initials(q.name)}</span><span><b>${esc(q.name)}</b><br><small class="note">${GOALS[q.goal][0]} · ${q.days.length} days</small></span>${q.id===p.id?'<span class="tag in">Active</span>':`<button class="ghost" data-act="switch" data-id="${q.id}">Switch</button>`}</div>`).join('')}</div><button class="btn sec wide" style="margin-top:10px" data-act="add">Add a person</button></section>`;
   h+=`<section class="card"><h2>Training program</h2><p class="note" style="margin:4px 0 10px">Choose how Atlas lays out your week.</p><div class="seg"><button class="opt" data-act="setsplit" data-v="std" aria-current="${!isHL(p)}" style="display:block"><b>Atlas plan</b><small style="display:block">Your lifting days, with the workouts rotating through them.</small></button><button class="opt" data-act="setsplit" data-v="hl" aria-current="${isHL(p)}" style="display:block"><b>High/Low athlete week</b><small style="display:block">3 hard days and 3 easy days, with the exact sessions from the video: Mon Upper Armour, Tue Speed + Lowers, Wed Aerobic, Thu Power + Lowers, Fri Upper Armour, Sat rest, Sun Speed + Fitness.</small></button></div></section>`;
   h+=backupCard();
-  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 27.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
+  h+=`<p class="note">${Store.mode==='cloud'?'Saved to your Claude account, so it opens on any device where you’re signed in.':'Saved on this phone. App version 28.'} Weights are estimates; start light, stop if something hurts, and check with a doctor if you have a health condition.</p>`;
   if(S.confirmDel===p.id)h+=`<div class="banner bad">Delete ${esc(p.name)} and all of their logged workouts? This can’t be undone.<div style="display:flex;gap:8px;margin-top:10px"><button class="btn danger" data-act="delyes">Delete</button><button class="btn sec" data-act="delno">Cancel</button></div></div>`;
   else h+=`<button class="link" style="color:var(--bad);align-self:flex-start" data-act="del">Delete ${esc(p.name)}</button>`;
   return h;
@@ -2185,6 +2186,37 @@ document.addEventListener('click',e=>{
   if(b.dataset.act==='close'&&b.classList.contains('scrim')&&e.target.closest('[data-stop]'))return;
   const a=b.dataset.act,p=active();
   unlockAudio();
+  if(a==='undo'){undoLast();return;}
+  const before=a==='undofin'?null:{pj:JSON.stringify(S.profiles),dj:JSON.stringify(S.drafts),timer:S.timer?{...S.timer}:null,active:S.activeId};
+  try{handleAct(a,b,p,e);}finally{if(before)noteChange(a,before);}
+});
+// Undo: every tap that changes your data can be taken back with the Undo button that pops up.
+const UNDO_LBL={done:'Set checked',gdone:'Set done',gskip:'Exercise skipped',finish:'Workout saved',rmex:'Exercise removed',rmx:'Exercise removed',delwyes:'Workout deleted',rmact:'Activity removed',logactgo:'Activity logged',skipd:'Day skipped',unskipd:'Day un-skipped',cskip:'Cardio skipped',uncskip:'Cardio un-skipped',shuffle:'Exercises shuffled',pick:'Exercise swapped',gen:'Random workout',flow:'Nonstop workout',grpgo:'Workout picked',newwgo:'Workout added',ungen:'Back to planned',addexpick:'Exercise added',addm:'Exercise added',addrand:'Exercise added',cdone:'Cardio done',cundo:'Cardio un-done',setsplit:'Program changed',putback:'Exercise put back',unskip:'Exercise un-skipped',loglift:'Workout added',warm:'Warm-up done'};
+function noteChange(a,before){
+  if(JSON.stringify(S.profiles)===before.pj&&JSON.stringify(S.drafts)===before.dj)return;
+  S.undoStack=(S.undoStack||[]).concat([{...before,label:UNDO_LBL[a]||'Change made'}]).slice(-20);
+  showUndo();
+}
+function showUndo(){
+  let el=document.getElementById('undobar');
+  if(!el){el=document.createElement('div');el.id='undobar';el.className='undobar';document.body.appendChild(el);}
+  const u=(S.undoStack||[])[S.undoStack.length-1];if(!u){el.hidden=true;return;}
+  el.innerHTML=`<span>${esc(u.label)}</span><button data-act="undo">Undo</button>`;el.hidden=false;
+  clearTimeout(S.undoT);S.undoT=setTimeout(()=>{el.hidden=true;},10000);
+}
+function undoLast(){
+  const u=(S.undoStack||[]).pop();if(!u)return;
+  S.profiles=JSON.parse(u.pj);S.activeId=u.active;
+  const old=JSON.parse(u.dj);
+  Object.keys(S.drafts).forEach(k=>{if(!(k in old)){delete S.drafts[k];lsDel('atlas.d.'+k);}});
+  Object.keys(old).forEach(k=>{S.drafts[k]=old[k];lsSet('atlas.d.'+k,old[k]);});
+  S.timer=u.timer;S.summary=null;S.undo=null;S.sheet=null;
+  const p=active();if(p)Store.save(p);saveUi();
+  const y=window.scrollY;render();window.scrollTo({top:y});
+  const el=document.getElementById('undobar');
+  if(el){el.innerHTML=`<span>Undone: ${esc(u.label.toLowerCase())}</span>${S.undoStack.length?'<button data-act="undo">Undo more</button>':''}`;el.hidden=false;clearTimeout(S.undoT);S.undoT=setTimeout(()=>{el.hidden=true;},6000);}
+}
+function handleAct(a,b,p,e){
   switch(a){
     case 'shuffle':{const di=+b.dataset.di;p.seeds=p.seeds||{};p.seeds[di]=uid();
       // A shuffle replaces any manual swaps on that workout.
@@ -2375,7 +2407,7 @@ document.addEventListener('click',e=>{
       const n=Math.min(6,Math.max(2,boxes.filter(x=>x.checked).length||3));
       boxes.forEach(x=>x.checked=SPREAD[n].includes(+x.value));break;}
   }
-});
+}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.sheet){S.sheet=null;render();}});
 
 /* ---------- boot ---------- */
